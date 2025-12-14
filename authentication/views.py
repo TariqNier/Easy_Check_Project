@@ -14,7 +14,7 @@ User = get_user_model()
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     
-    search_fields = ['username', 'phone', 'email', 'first_name'] 
+    search_fields = ['username', 'phone_number'] 
     
     filterset_fields = ['is_active', 'is_staff']
     

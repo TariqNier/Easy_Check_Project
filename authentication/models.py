@@ -5,19 +5,17 @@ from django.contrib.auth.models import (
 from django.utils.translation import gettext_lazy as _
 
 class UserManager(BaseUserManager):
-    def create_user(self,phone_number, email, username, password=None, **extra_fields):
+    def create_user(self,phone_number, username, password=None, **extra_fields):
         # 1. Check for empty fields
         if not phone_number:
             raise ValueError(_('The Phone Number field must be set'))
         if not username:
             raise ValueError(_('The Username field must be set'))
 
-        # 2. Normalize email (converts SomeOne@Gmail.com to someone@gmail.com)
-        email = self.normalize_email(email)
-        
+       
         user = self.model(
             phone_number=phone_number,
-            email=email, 
+     
             username=username, 
             **extra_fields
         )
@@ -31,7 +29,7 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, phone_number, email, username, password, **extra_fields):
+    def create_superuser(self, phone_number, username, password, **extra_fields):
         # Force these settings for Admin
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
@@ -43,13 +41,12 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError(_('Superuser must have is_superuser=True.'))
 
-        return self.create_user(phone_number,email, username, password, **extra_fields)
+        return self.create_user(phone_number, username, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
     # Core Fields
     username = models.CharField(max_length=150, unique=True, db_index=True)
-    email = models.EmailField(max_length=255, unique=True, db_index=True,blank=True,null=True) 
     phone_number = models.CharField(max_length=15,unique=True, db_index=True)
     
     # Project Specific Fields
@@ -66,7 +63,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Login Settings
     USERNAME_FIELD = 'phone_number'  # Login with Phone Number
-    REQUIRED_FIELDS = ['username','email'] # Ask for username when running 'createsuperuser'
+    REQUIRED_FIELDS = ['username'] # Ask for username when running 'createsuperuser'
 
     objects = UserManager()
 
