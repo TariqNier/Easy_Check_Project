@@ -1,3 +1,4 @@
+#system/settings.py
 """
 Django settings for system project.
 
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework.authtoken',
     'corsheaders',
+    'store'
 ]
 
 MIDDLEWARE = [
