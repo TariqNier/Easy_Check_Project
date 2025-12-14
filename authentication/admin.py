@@ -1,33 +1,36 @@
+#authentication/admin.py
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from .forms import CustomUserCreationForm, CustomUserChangeForm
 
 User = get_user_model()
 
 class UserAdmin(BaseUserAdmin):
-    # The forms to add and change user instances
+    # Connect the forms
+    add_form = CustomUserCreationForm
+    form = CustomUserChangeForm
     model = User
     
-    # The fields to be used in displaying the User model.
-    list_display = ('username', 'phone_number', 'balance', 'is_staff')
+    # Columns to show in the list
+    list_display = ('phone_number', 'username', 'balance', 'is_staff')
     list_filter = ('is_staff', 'is_active')
     
-    # Fieldsets controls the layout of the "Change User" page
-    fieldsets = (
-        (None, {'fields': ('username', 'password')}),
-        ('Personal info', {'fields': ('phone_number', 'balance')}),
-        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
-    )
-    
-    # add_fieldsets controls the "Add User" page
+    # Layout for ADDING a user (Must match CustomUserCreationForm fields + passwords)
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('username', 'phone_number', 'password'),
+            'fields': ('phone_number', 'username', 'password1', 'password2'),
         }),
     )
     
-    # Because we don't have first_name/last_name, we must specify ordering
+    # Layout for EDITING a user
+    fieldsets = (
+        (None, {'fields': ('phone_number', 'password')}),
+        ('Personal info', {'fields': ('username', 'balance')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser')}),
+    )
+    
     ordering = ('phone_number',)
     search_fields = ('phone_number', 'username')
 
