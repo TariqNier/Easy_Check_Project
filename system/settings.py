@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'authentication',
     'rest_framework',
     'django_filters',
-    'rest_framework_simplejwt',
+    'rest_framework.authtoken',
     'corsheaders',
 ]
 
@@ -136,7 +136,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
     ),
     
     # 1. Add Pagination (Limit to 20 items per page)
@@ -162,15 +162,3 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 
-from datetime import timedelta
-
-SIMPLE_JWT = {
-    # Make the access token last longer (e.g., 60 minutes)
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    
-    # Refresh token lasts 1 day (standard)
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    
-    # The header type (Frontend must send "Bearer <token>")
-    'AUTH_HEADER_TYPES': ('Bearer',),
-}

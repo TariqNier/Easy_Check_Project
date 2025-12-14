@@ -16,22 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from rest_framework.authtoken.views import obtain_auth_token  
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # 1. Auth Routes (Register, Me, Profile)
-    # We prefix it with 'auth' to match Omar's expectation
+    # Auth Routes
     path('api/auth/', include('authentication.urls')),
-
-    # 2. Login Routes (SimpleJWT)
-    # POST /api/auth/login/ -> Get Token
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    
-    # POST /api/auth/refresh/ -> Refresh Token
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/login/', obtain_auth_token, name='api_token_auth'), 
 ]

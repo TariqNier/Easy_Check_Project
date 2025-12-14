@@ -46,7 +46,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     # Core Fields
-    username = models.CharField(max_length=150, unique=True, db_index=True)
+    username = models.CharField(max_length=150, db_index=True)
     phone_number = models.CharField(max_length=15,unique=True, db_index=True)
     
     # Project Specific Fields
