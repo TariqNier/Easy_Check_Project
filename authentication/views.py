@@ -14,6 +14,10 @@ User = get_user_model()
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     
+    search_fields = ['username', 'phone', 'email', 'first_name'] 
+    
+    filterset_fields = ['is_active', 'is_staff']
+    
     def get_serializer_class(self):
         if self.action == 'create':
             return UserRegistrationSerializer
