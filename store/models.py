@@ -39,11 +39,14 @@ class Transaction(models.Model):
         ('FAILED', 'Failed'),
     )
 
+    is_guest=models.BooleanField(default=False)
+    guest_email=models.EmailField(null=True)
 
     user = models.ForeignKey(
         User, 
         on_delete=models.PROTECT, 
-        related_name='transactions'
+        related_name='transactions',
+        null=True
     )
     
     amount = models.DecimalField(max_digits=10, decimal_places=2)

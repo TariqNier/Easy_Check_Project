@@ -110,12 +110,19 @@ class DepositSerializer(serializers.Serializer):
         # 3. Find the User
         merchant_order_id = data['merchantOrderId']
         try:
-            user_id = merchant_order_id.split('-')[0] # "5-12345" -> "5"
-            user = User.objects.get(id=user_id)
-            # Store user in context to use it later
-            self.context['target_user'] = user
+            payer_info = merchant_order_id.split('-') # "5-12345" -> "5"
+            #Guest merchant_order_id will look like this: GUEST-ServiceID-IMEI - Email
+            if payer_info[0] == 'GUEST':
+                self.context['guest_email']=payer_info[3]
+                self.context['is_guest']=True
+                self.context['service_id']=payer_info[1]
+                self.context['imei']=payer_info[2]   
+            else:
+                user = User.objects.get(id=payer_info[0])
+                # Store user in context to use it later
+                self.context['target_user'] = user
         except (IndexError, User.DoesNotExist):
-            raise serializers.ValidationError("Invalid Merchant Order ID")
+                raise serializers.ValidationError("Invalid Merchant Order ID")
 
         return data
 
@@ -124,24 +131,43 @@ class DepositSerializer(serializers.Serializer):
         Level 2: Execution
         Update the wallet atomically.
         """
-        user = self.context['target_user']
         amount = Decimal(validated_data['amount'])
         txn_ref = validated_data['transactionId']
-
-        # Atomic Balance Update
-        with transaction.atomic():
-            # Lock the user row again for safety
-            user = type(user).objects.select_for_update().get(id=user.id)
+        if self.context['is_guest']:
+            service_id= self.context['service_id']
+            imei = self.context['imei'] 
+            guest_email=self.context['guest_email']
             
-            user.balance += amount
-            user.save()
-
+            #api_result = check_imei_on_sickw(imei=imei , service_id=service_id)
+            #for testing, we do a fake test
+            api_result = "TEST RESULT: FMI OFF (Simulated)"
+            
             transaction_record = Transaction.objects.create(
-                user=user,
-                amount=amount,
-                transaction_type='DEPOSIT',
+                is_guest=True,
+                guest_email=guest_email,
+                amount=validated_data['amount'],
+                transaction_type='PURCHASE',
                 status='COMPLETED',
-                description=f"Kashier Deposit - Ref: {txn_ref}"
+                description=f"{api_result} (Ref: {txn_ref})",
+                user=None
             )
-        
+        else:
+            user = self.context['target_user']
+            
+            # Atomic Balance Update
+            with transaction.atomic():
+                # Lock the user row again for safety
+                user = type(user).objects.select_for_update().get(id=user.id)
+                
+                user.balance += amount
+                user.save()
+
+                transaction_record = Transaction.objects.create(
+                    user=user,
+                    amount=amount,
+                    transaction_type='DEPOSIT',
+                    status='COMPLETED',
+                    description=f"Kashier Deposit - Ref: {txn_ref}"
+                )
+
         return transaction_record

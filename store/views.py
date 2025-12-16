@@ -22,7 +22,15 @@ class TransactionViewSet(viewsets.GenericViewSet,
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Transaction.objects.filter(user=self.request.user).order_by('-created_at')
+        user = self.request.user
+
+        if user.is_staff:
+            return Transaction.objects.all().order_by('-created_at')
+        else:
+            return Transaction.objects.filter(user=user).order_by('-created_at')
+        
+
+
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -66,5 +74,7 @@ class TransactionViewSet(viewsets.GenericViewSet,
         except Exception as e:
             # 4. Failure Redirect
             # You can print(e) here for debugging logs
+            print(e)
+            
             return redirect("https://your-frontend.com/payment-failed")
         
