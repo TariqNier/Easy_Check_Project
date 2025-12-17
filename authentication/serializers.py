@@ -27,7 +27,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
         return user
     
-    
+    #ymkn asheel de lesa ht2kd
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

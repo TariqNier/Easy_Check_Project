@@ -66,3 +66,4 @@ class UserViewSet(viewsets.ModelViewSet):
         if not password:
             return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
         user=authenticate(username=phone_number, password=password)
+        #not complete
