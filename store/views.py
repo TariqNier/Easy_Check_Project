@@ -4,10 +4,10 @@ from rest_framework.response import Response
 from .models import Service, Transaction
 from .serializers import ServiceSerializer, TransactionSerializer, PurchaseSerializer,DepositSerializer
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
 from django.shortcuts import redirect
-from decimal import Decimal
 from django.contrib.auth import get_user_model
+import urllib.parse
+from django.http import HttpResponse
 
 User = get_user_model()
 
@@ -62,19 +62,29 @@ class TransactionViewSet(viewsets.GenericViewSet,
         """
         # 1. Pass the URL parameters (query_params) to the Serializer
         serializer = DepositSerializer(data=request.query_params, context={'request': request})
-
+ 
         try:
-            # 2. Run Validation & Creation (All logic is inside .is_valid and .save)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
             
-            # 3. Success Redirect
-            return redirect("https://your-frontend.com/payment-success")
+            serializer.is_valid(raise_exception=True)
+            transaction = serializer.save()
+
+            data = {
+            'transaction_id': transaction.id,
+            'status': transaction.status,
+            'amount': transaction.amount,
+            'result': transaction.description
+              }
+        
+            params=urllib.parse.urlencode(data)
+        
+    
+            # 5. Success Redirect (Forcing the file protocol)
+            return redirect(f"https://www.google.com/?{params}")
 
         except Exception as e:
             # 4. Failure Redirect
             # You can print(e) here for debugging logs
-            print(e)
+            print("Error:",e)
             
             return redirect("https://your-frontend.com/payment-failed")
         

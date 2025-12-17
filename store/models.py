@@ -29,8 +29,7 @@ class Transaction(models.Model):
     """
     TRANSACTION_TYPES = (
         ('DEPOSIT', 'Deposit'),       
-        ('PURCHASE', 'Purchase'),   
-        ('REFUND', 'Refund'),        
+        ('PURCHASE', 'Purchase'),       
     )
     
     STATUS_CHOICES = (
