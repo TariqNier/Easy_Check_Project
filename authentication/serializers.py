@@ -7,10 +7,10 @@ User = get_user_model()
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
-    
+    confirm_password = serializers.CharField(required=True, write_only=True)
     class Meta:
         model = User
-        fields = ['id','phone_number', 'password']
+        fields = ['id','phone_number', 'password','confirm_password']
         read_only_fields = ['balance', 'is_active', 'created_at','username']
         
     def create(self, validated_data):
@@ -26,6 +26,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             phone_number=validated_data['phone_number']
         )
         return user
+    
+    
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Password fields didn't match."})
+        return data
+
     
     #ymkn asheel de lesa ht2kd
 class UserSerializer(serializers.ModelSerializer):
