@@ -2,7 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import UserViewSet
-from rest_framework.authtoken.views import obtain_auth_token
+from .views import CustomAuthToken
 
 app_name = 'authentication'  
 
@@ -12,9 +12,9 @@ router.register(r'users', UserViewSet, basename='user')
 urlpatterns = [
 
     path('', include(router.urls)), 
-    path('login/', obtain_auth_token, name='api_token_auth'),
+    path('login/', CustomAuthToken.as_view(), name='login'),
 ]
 
 
 #localhost:8000/users/register/
-#localhost:8000/users/login/
+#localhost:8000/login/

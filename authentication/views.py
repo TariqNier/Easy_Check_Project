@@ -1,14 +1,37 @@
 #authentication/views.py
-from django.shortcuts import render
 from rest_framework import viewsets,permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from .serializers import UserRegistrationSerializer, UserSerializer
 ModelViewSet = viewsets.ModelViewSet
-from django.contrib.auth import authenticate
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
 
 User = get_user_model()
+
+  
+class CustomAuthToken(ObtainAuthToken):
+    #phone number will be named username
+    # 'username : 0123456789',
+    # 'password : yourpassword'
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+        
+        return Response({
+            'token': token.key,
+            'username': user.username, 
+            'user_id': user.pk,
+            'phone_number': str(user.phone_number),
+            'balance': user.balance,
+            'created_at': user.created_at
+                    
+        })   
+   
+
 
 
 # Create your views here.
@@ -26,9 +49,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['register','login']:
             return [permissions.AllowAny()]
-        elif self.action == 'list':
-            return [permissions.IsAdminUser()]
-        elif self.action == 'me':
+        elif self.action in ['user_info','logout']:
             return [permissions.IsAuthenticated()]
         else:
             return [permissions.IsAdminUser()]
@@ -42,9 +63,6 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({
             "status": "success",
             "message": "User created successfully",
-            "user_id": user.id,
-            "phone": user.phone_number,
-            "username": user.username
         }, status=status.HTTP_201_CREATED)
     
     
@@ -53,10 +71,15 @@ class UserViewSet(viewsets.ModelViewSet):
         
         #Custom Action: "My profile"
         # URL : /api/users/me/
-    @action(detail=False,methods =['get'], url_name='me', url_path='me')
-    def me(self,request):
+    @action(detail=False,methods =['get'], url_name='user_info', url_path='user_info')
+    def user_info(self,request):
         serializer= self.get_serializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_name='logout', url_path='logout')
+    def logout(self, request):
+        request.auth.delete() 
+        return Response({"status": "success", "message": "Logged out successfully."}, status=status.HTTP_200_OK)
 
    
     # def create(self, request, *args, **kwargs):

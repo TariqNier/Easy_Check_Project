@@ -15,8 +15,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
     def create(self, validated_data):
         
-        random_suffix = ''.join(random.choices(string.ascii_uppercase, k=5))
-        generated_username = f"User{random_suffix}"
+        random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        generated_username = f"User_{random_suffix}"
         
         
         user=User.objects.create_user(
@@ -34,11 +34,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return data
 
     
-    #ymkn asheel de lesa ht2kd
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         # We allow the frontend to see these fields
-        fields = ['id', 'username', 'phone_number', 'balance', 'is_verified']
+        fields = ['id', 'username', 'phone_number', 'balance','created_at' ]
         # But we prevent them from editing them directly via API
-        read_only_fields = ['balance', 'is_verified', 'phone_number']
+        read_only_fields = ['id', 'username', 'phone_number', 'balance','created_at' ]

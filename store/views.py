@@ -7,7 +7,6 @@ from rest_framework.decorators import action
 from django.shortcuts import redirect
 from django.contrib.auth import get_user_model
 import urllib.parse
-from django.http import HttpResponse
 
 User = get_user_model()
 
@@ -38,7 +37,7 @@ class TransactionViewSet(viewsets.GenericViewSet,
         return TransactionSerializer
 
     def create(self, request, *args, **kwargs):
-        # 1. Initialize Serializer with 'request' in context (so we can access user)
+      
         serializer = self.get_serializer(data=request.data, context={'request': request})
         
         # 2. Run Validation
