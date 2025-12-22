@@ -4,10 +4,13 @@ charset-normalizer==3.4.4
 Django==6.0
 django-cors-headers==4.9.0
 django-filter==25.2
+django-phonenumber-field==8.4.0
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1
 idna==3.11
 Markdown==3.10
+phonenumbers==9.0.21
+phonenumberslite==9.0.21
 psycopg2-binary==2.9.11
 PyJWT==2.10.1
 python-dotenv==1.2.1

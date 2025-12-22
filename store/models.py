@@ -7,16 +7,9 @@ from django.contrib.auth import get_user_model
 User=get_user_model()
 
 class Service(models.Model):
-    """
-    Stores the services you offer (e.g., Sickw Check, Unlocking).
-    Admins can update 'price' here, and it updates the app instantly.
-    """
-    name = models.CharField(max_length=100)  # e.g. "Sickw Info"
-    service_id = models.CharField(max_length=50, unique=True)  # The ID sent to Sickw (e.g. "10")
-    
-    
+    name = models.CharField(max_length=100) 
+    service_id = models.CharField(max_length=50, unique=True)  
     price = models.DecimalField(max_digits=10, decimal_places=2) 
-    
     is_active = models.BooleanField(default=True)
     description = models.TextField(blank=True, null=True)
 
@@ -24,9 +17,6 @@ class Service(models.Model):
         return f"{self.name} (${self.price})"
 
 class Transaction(models.Model):
-    """
-    The "Paper Trail". Logs every single movement of money.
-    """
     TRANSACTION_TYPES = (
         ('DEPOSIT', 'Deposit'),       
         ('PURCHASE', 'Purchase'),       

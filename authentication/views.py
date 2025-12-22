@@ -19,12 +19,12 @@ class UserViewSet(viewsets.ModelViewSet):
     filterset_fields = ['is_active', 'is_staff']
     
     def get_serializer_class(self):
-        if self.action == 'create' or self.action == 'register':
+        if self.action == 'register':
             return UserRegistrationSerializer
         return UserSerializer
     
     def get_permissions(self):
-        if self.action == 'create' or self.action == 'register' or self.action == 'login':
+        if self.action in ['register','login']:
             return [permissions.AllowAny()]
         elif self.action == 'list':
             return [permissions.IsAdminUser()]

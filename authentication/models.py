@@ -3,11 +3,16 @@ from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser, BaseUserManager, PermissionsMixin
 )
+from phonenumber_field.modelfields import PhoneNumberField
 from django.utils.translation import gettext_lazy as _
+
+
+
+
 
 class UserManager(BaseUserManager):
     def create_user(self,phone_number, username, password=None, **extra_fields):
-        # 1. Check for empty fields
+     
         if not phone_number:
             raise ValueError(_('The Phone Number field must be set'))
         if not username:
@@ -21,7 +26,6 @@ class UserManager(BaseUserManager):
             **extra_fields
         )
 
-        # 3. Handle Password
         if password:
             user.set_password(password)
         else:
@@ -31,7 +35,7 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, phone_number, username, password, **extra_fields):
-        # Force these settings for Admin
+
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
@@ -46,25 +50,19 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    # Core Fields
+
     username = models.CharField(max_length=150, db_index=True)
-    phone_number = models.CharField(max_length=15,unique=True, db_index=True)
-    
-    # Project Specific Fields
+    phone_number = PhoneNumberField(max_length=15,unique=True, db_index=True)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    
-    # Status Fields
     is_verified = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)   
     is_staff = models.BooleanField(default=False) 
-    
-    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Login Settings
-    USERNAME_FIELD = 'phone_number'  # Login with Phone Number
-    REQUIRED_FIELDS = ['username'] # Ask for username when running 'createsuperuser'
+    
+    USERNAME_FIELD = 'phone_number' 
+    REQUIRED_FIELDS = ['username'] 
 
     objects = UserManager()
 
