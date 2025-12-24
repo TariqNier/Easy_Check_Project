@@ -1,8 +1,11 @@
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { Lock, AlertCircle } from 'lucide-react';
-import PhoneInput from './PhoneInput';
-import { isValidPhoneNumber } from 'libphonenumber-js';
+import React from "react";
+import { useForm } from "react-hook-form";
+import { Lock, AlertCircle } from "lucide-react";
+import PhoneInput from "./PhoneInput";
+import {
+  isValidPhoneNumber,
+  parsePhoneNumberWithError,
+} from "libphonenumber-js";
 
 function RegisterForm({ onSubmit, loading, error }) {
   const {
@@ -12,46 +15,59 @@ function RegisterForm({ onSubmit, loading, error }) {
     setValue,
     watch,
   } = useForm({
-    mode: 'onChange',
+    mode: "onChange",
     defaultValues: {
-      phone_number: '',
-      password: '',
-      confirm_password: '',
+      phone_number: "",
+      password: "",
+      confirm_password: "",
     },
   });
 
-  const phoneValue = watch('phone_number');
-  const password = watch('password');
+  const phoneValue = watch("phone_number");
+  const password = watch("password");
 
   const handlePhoneChange = (value) => {
-    setValue('phone_number', value, { shouldValidate: true });
+    setValue("phone_number", value, { shouldValidate: true });
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Phone Number Field */}
-            <input
+      <input
         type="hidden"
         {...register("phone_number", {
           required: "Phone number is required",
           validate: (value) => {
-            if (!value || value === "+") return "Phone number is required";
-            // التحقق من صحة الرقم باستخدام المكتبة
-            return (
-              isValidPhoneNumber(value) ||
-              "Invalid phone number for this country"
-            );
+            if (!value || value === "+") {
+              return "Phone number is required";
+            }
+
+            if (value.length < 8) {
+              return "Phone number is too short";
+            }
+
+            try {
+              if (!isValidPhoneNumber(value)) {
+                return "Invalid phone number";
+              }
+
+              const phoneNumber = parsePhoneNumberWithError(value);
+              const phoneType = phoneNumber?.getType();
+
+              if (phoneType && phoneType !== "MOBILE") {
+                return "Please enter a mobile number";
+              }
+
+              return true;
+            } catch (error) {
+              return "Invalid phone number format";
+            }
           },
         })}
       />
 
       <PhoneInput
         value={phoneValue}
-        onChange={(val) => {
-          // إضافة الـ + دايماً عشان الباك إند
-          const formatted = val.startsWith("+") ? val : `+${val}`;
-          setValue("phone_number", formatted, { shouldValidate: true });
-        }}
+        onChange={handlePhoneChange}
         error={errors.phone_number?.message}
         disabled={loading}
       />
@@ -68,26 +84,27 @@ function RegisterForm({ onSubmit, loading, error }) {
           />
           <input
             type="password"
-            {...register('password', {
-              required: 'Password is required',
+            {...register("password", {
+              required: "Password is required",
               minLength: {
                 value: 8,
-                message: 'Password must be at least 8 characters',
+                message: "Password must be at least 8 characters",
               },
               maxLength: {
                 value: 20,
-                message: 'Password must be maximum 20 characters',
+                message: "Password must be maximum 20 characters",
               },
               validate: {
                 hasNumber: (value) =>
-                  /\d/.test(value) || 'Password must contain at least one number',
+                  /\d/.test(value) ||
+                  "Password must contain at least one number",
                 hasUpperCase: (value) =>
                   /[A-Z]/.test(value) ||
-                  'Password must contain at least one uppercase letter',
+                  "Password must contain at least one uppercase letter",
               },
             })}
             className={`w-full bg-gray-50 border-2 ${
-              errors.password ? 'border-red-500' : 'border-dark/10'
+              errors.password ? "border-red-500" : "border-dark/10"
             } rounded-2xl py-4 pl-12 pr-4 font-bold focus:border-lime-yellow focus:ring-4 focus:ring-lime-yellow/20 outline-none transition-all`}
             placeholder="••••••••"
             disabled={loading}
@@ -116,12 +133,13 @@ function RegisterForm({ onSubmit, loading, error }) {
           />
           <input
             type="password"
-            {...register('confirm_password', {
-              required: 'Please confirm your password',
-              validate: (value) => value === password || 'Passwords do not match',
+            {...register("confirm_password", {
+              required: "Please confirm your password",
+              validate: (value) =>
+                value === password || "Passwords do not match",
             })}
             className={`w-full bg-gray-50 border-2 ${
-              errors.confirm_password ? 'border-red-500' : 'border-dark/10'
+              errors.confirm_password ? "border-red-500" : "border-dark/10"
             } rounded-2xl py-4 pl-12 pr-4 font-bold focus:border-lime-yellow focus:ring-4 focus:ring-lime-yellow/20 outline-none transition-all`}
             placeholder="••••••••"
             disabled={loading}

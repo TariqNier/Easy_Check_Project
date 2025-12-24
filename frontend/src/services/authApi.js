@@ -12,16 +12,16 @@ export function saveAuthToken(token) {
   } catch (error) {
     return false;
   }
-};
+}
 
 export function getAuthToken() {
   return Cookies.get("auth_token") || null;
-};
+}
 
 export function removeAuthToken() {
   Cookies.remove("auth_token");
   return true;
-};
+}
 
 export async function register({ phone_number, password, confirm_password }) {
   try {
@@ -48,12 +48,18 @@ export async function login({ phone_number, password }) {
       saveAuthToken(response.data.token);
     }
 
-    return response.data;
+    return {
+      id: response.data.user_id,
+      username: response.data.username,
+      phone_number: response.data.phone_number,
+      balance: parseFloat(response.data.balance),
+      created_at: response.data.created_at,
+    };
   } catch (error) {
     const message = error.response?.data?.message || "Failed to login";
     throw new Error(message);
   }
-};
+}
 
 export async function verifyAuth() {
   try {
@@ -61,12 +67,18 @@ export async function verifyAuth() {
     if (!token) return null;
 
     const response = await axiosInstance.get("/users/user_info");
-    return response.data;
+    return {
+      id: response.data.user_id,
+      username: response.data.username,
+      phone_number: response.data.phone_number,
+      balance: parseFloat(response.data.balance),
+      created_at: response.data.created_at,
+    };
   } catch (error) {
     removeAuthToken();
     return null;
   }
-};
+}
 
 export async function logout() {
   try {
@@ -80,4 +92,4 @@ export async function logout() {
     removeAuthToken();
     return true;
   }
-};
+}

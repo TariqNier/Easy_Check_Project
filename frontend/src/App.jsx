@@ -6,27 +6,26 @@ import AppRouter from './router/AppRouter';
 import './App.css';
 
 function App() {
-  // const dispatch = useDispatch();
-  // const {loading} = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  const {loading} = useSelector((state) => state.auth);
 
-  // useEffect(() => {
-  //   dispatch(verifyAuthThunk());
-  // }, [dispatch]);
+  useEffect(() => {
+    dispatch(verifyAuthThunk());
+  }, [dispatch]);
 
-  // if (loading) {
-  //   return (
-  //     <div className="flex items-center justify-center min-h-screen bg-white">
-  //       <div className="text-center">
-  //         <div className="w-16 h-16 border-4 border-main-green border-t-lime-yellow rounded-full animate-spin mx-auto mb-4"></div>
-  //         <p className="text-dark font-bold text-lg">Loading...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-main-green border-t-lime-yellow rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-dark font-bold text-lg">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* Toast Notifications */}
       <Toaster
         position="top-right"
         reverseOrder={false}

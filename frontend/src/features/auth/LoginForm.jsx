@@ -2,7 +2,10 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { Lock, AlertCircle } from "lucide-react";
 import PhoneInput from "./PhoneInput";
-import { isValidPhoneNumber } from 'libphonenumber-js';
+import {
+  isValidPhoneNumber,
+  parsePhoneNumberWithError,
+} from "libphonenumber-js";
 
 function LoginForm({ onSubmit, loading, error }) {
   const {
@@ -27,27 +30,42 @@ function LoginForm({ onSubmit, loading, error }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Phone Number Field */}
       <input
         type="hidden"
         {...register("phone_number", {
           required: "Phone number is required",
           validate: (value) => {
-            if (!value || value === "+") return "Phone number is required";
-            return (
-              isValidPhoneNumber(value) ||
-              "Invalid phone number for this country"
-            );
+            if (!value || value === "+") {
+              return "Phone number is required";
+            }
+
+            if (value.length < 8) {
+              return "Phone number is too short";
+            }
+
+            try {
+              if (!isValidPhoneNumber(value)) {
+                return "Invalid phone number";
+              }
+
+              const phoneNumber = parsePhoneNumberWithError(value);
+              const phoneType = phoneNumber?.getType();
+
+              if (phoneType && phoneType !== "MOBILE") {
+                return "Please enter a mobile number";
+              }
+
+              return true;
+            } catch (error) {
+              return "Invalid phone number format";
+            }
           },
         })}
       />
 
       <PhoneInput
         value={phoneValue}
-        onChange={(val) => {
-          const formatted = val.startsWith("+") ? val : `+${val}`;
-          setValue("phone_number", formatted, { shouldValidate: true });
-        }}
+        onChange={handlePhoneChange}
         error={errors.phone_number?.message}
         disabled={loading}
       />
@@ -103,7 +121,7 @@ function LoginForm({ onSubmit, loading, error }) {
         {loading ? (
           <>
             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            <span>Processing...</span>
+            <span>Login...</span>
           </>
         ) : (
           <span>Login Now</span>

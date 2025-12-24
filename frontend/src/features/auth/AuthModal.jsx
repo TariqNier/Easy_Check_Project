@@ -21,7 +21,7 @@ function AuthModal({ isOpen, onClose }) {
 
   // Handle ESC key
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    function handleKeyDown(e){
       if (e.key === 'Escape') {
         onClose();
       }
@@ -36,7 +36,7 @@ function AuthModal({ isOpen, onClose }) {
     };
   }, [isOpen, onClose]);
 
-  const handleLoginSubmit = async (data) => {
+  async function handleLoginSubmit(data){
     try {
       await dispatch(
         loginThunk({
@@ -52,7 +52,7 @@ function AuthModal({ isOpen, onClose }) {
     }
   };
 
-  const handleRegisterSubmit = async (data) => {
+  async function handleRegisterSubmit(data) {
     try {
       await dispatch(
         registerThunk({
@@ -71,7 +71,7 @@ function AuthModal({ isOpen, onClose }) {
     
   };
 
-  const handleToggleMode = () => {
+  function handleToggleMode() {
     setIsLogin(!isLogin);
     dispatch(clearError());
   };

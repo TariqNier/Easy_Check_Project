@@ -4,7 +4,7 @@ import * as authAPI from '../../services/authApi';
 const initialState = {
   user: null, 
   isAuthenticated: false,
-  loading: false, 
+  loading: true, 
   error: null,
 };
 
