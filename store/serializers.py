@@ -30,11 +30,19 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 
     
+# store/serializers.py
+
 class UserTransactionSerializer(TransactionSerializer):
-    
+
+    class Meta(TransactionSerializer.Meta):
+        fields = TransactionSerializer.Meta.fields + ['service_details']
+
     def create(self, validated_data):
-        validated_data['is_balance_topup'] = True
-        return super().create(validated_data)  
+        if not validated_data.get('service_details'):
+            validated_data['is_balance_topup'] = True
+
+            
+        return super().create(validated_data)
 
 class GuestTransactionSerializer(TransactionSerializer):
     service_details = serializers.JSONField(required=True) 

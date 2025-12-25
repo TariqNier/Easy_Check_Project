@@ -1,25 +1,17 @@
-#store/views.py
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
-from .models import Service, Transaction
-from .serializers import TransactionSerializer, UserTransactionSerializer, GuestTransactionSerializer
-from rest_framework.decorators import action
+# store/views.py
+import datetime
+import requests
+from django.conf import settings
 from django.shortcuts import redirect
 from django.contrib.auth import get_user_model
-import urllib.parse
-from django.conf import settings
-from rest_framework import viewsets, status
+
+from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Transaction
-from .serializers import TransactionSerializer
+from rest_framework.decorators import action
+
+from .models import Service, Transaction
+from .serializers import UserTransactionSerializer, GuestTransactionSerializer
 from .utils import get_kashier_auth_headers
-# store/views.py
-import requests
-import datetime
-
-
-
-
 User = get_user_model()
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -30,6 +22,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
         if user.is_authenticated:
             return UserTransactionSerializer
+        
         return GuestTransactionSerializer
     
     def get_permissions(self):
@@ -43,6 +36,28 @@ class TransactionViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         
         user=request.user if request.user.is_authenticated else None
+        
+        if user and serializer.validated_data.get('service_details'):
+            amount = serializer.validated_data.get('amount')
+        
+            if user.balance < amount:
+                return Response({"error":"Insufficient balance",'Current Balance':user.balance}, status=status.HTTP_400_BAD_REQUEST)
+        
+            user.balance -= amount
+            user.save()
+            
+            transaction = serializer.save(user=user, status='COMPLETED', is_balance_topup=False)
+            
+            imei = transaction.service_details.get('imei')
+            print(f"(User) Triggering Unlocking API for IMEI: {imei}")
+            
+            return Response({
+                "status": "success",
+                "transaction_id": transaction.id,
+                "transaction_status": transaction.status,
+                "new_balance": user.balance,
+            }, status=status.HTTP_201_CREATED)
+            
         transaction = serializer.save(user=user)
         
         
@@ -61,7 +76,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             "type":"external",
             "allowedMethods": "card,wallet,fawry,instapay,basata",
             "customer": {
-                "name": user.phone_number if user else "Guest",
+                "name": str(user.phone_number) if user else "Guest",
                 "email": "",
                 "reference": str(user.id) if user else "guest"
             }
@@ -136,10 +151,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 transaction.kashier_session_id = webhook_data['orderId']
             
             transaction.save()
-            print(f"Guest Payment Verified: {transaction_id}")
+            print(f"Payment Verified: {transaction_id}")
 
-            
-            if transaction.service_details:
+            if transaction.is_balance_topup and transaction.user:
+                transaction.user.balance += transaction.amount
+                transaction.user.save()
+                print(f"User {transaction.user.id} balance topped up by {transaction.amount}. New balance: {transaction.user.balance}")
+            elif transaction.service_details:
                 imei = transaction.service_details.get('imei')
                 print(f"(Guest) Triggering Unlocking API for IMEI: {imei}")
                 
