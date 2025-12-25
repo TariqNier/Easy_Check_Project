@@ -24,3 +24,28 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+*.sqlite3
+media/
+staticfiles/
+
+# --- React / Node ---
+node_modules/
+build/
+dist/
+.npm
+*.log
+
+# --- Environment Variables (Security) ---
+.env
+.env.local
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
