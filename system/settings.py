@@ -11,6 +11,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+
+
+
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -166,3 +169,15 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 
+# 1. Credentials
+KASHIER_MID = os.getenv("MERCHANT_ID") 
+KASHIER_API_KEY = os.getenv("KASHIER_PAYMENT_API_KEY")
+KASHIER_SECRET_KEY = os.getenv("KASHIER_SERVER_KEY") 
+
+# 2. Environment Setup
+KASHIER_TEST_MODE = True 
+
+if KASHIER_TEST_MODE:
+    KASHIER_API_URL = "https://test-api.kashier.io" 
+else:
+    KASHIER_API_URL = "https://api.kashier.io"

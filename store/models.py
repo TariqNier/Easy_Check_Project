@@ -1,10 +1,37 @@
 #store/models.py
 from django.db import models
-from django.conf import settings 
+import uuid
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 
 User=get_user_model()
+
+
+class Transaction(models.Model):
+    STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('COMPLETED', 'Completed'),
+        ('FAILED', 'Failed'),
+     )
+
+    
+    user = models.ForeignKey(User, on_delete=models.SET_NULL,null=True, blank=True) 
+    merchant_transaction_id = models.UUIDField(max_length=100, default=uuid.uuid4, editable=False, unique=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    is_balance_topup = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    service_details = models.JSONField(null=True, blank=True)
+
+
+
+
+
+
+
+
+
+
 
 class Service(models.Model):
     name = models.CharField(max_length=100) 
@@ -16,35 +43,10 @@ class Service(models.Model):
     def __str__(self):
         return f"{self.name} (${self.price})"
 
-class Transaction(models.Model):
-    TRANSACTION_TYPES = (
-        ('DEPOSIT', 'Deposit'),       
-        ('PURCHASE', 'Purchase'),       
-    )
-    
-    STATUS_CHOICES = (
-        ('PENDING', 'Pending'),
-        ('COMPLETED', 'Completed'),
-        ('FAILED', 'Failed'),
-    )
 
-    is_guest=models.BooleanField(default=False)
-    guest_email=models.EmailField(null=True)
 
-    user = models.ForeignKey(
-        User, 
-        on_delete=models.PROTECT, 
-        related_name='transactions',
-        null=True
-    )
-    
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-    
-    # Extra info (e.g., "Sickw Check for IMEI 3582...")
-    description = models.CharField(max_length=255) 
-    created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user} - {self.transaction_type} - ${self.amount}"
+
+
+
+

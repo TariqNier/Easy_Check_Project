@@ -1,89 +1,170 @@
 #store/views.py
-from rest_framework import viewsets, permissions, status, mixins
+from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from .models import Service, Transaction
-from .serializers import ServiceSerializer, TransactionSerializer, PurchaseSerializer,DepositSerializer
+from .serializers import TransactionSerializer, UserTransactionSerializer, GuestTransactionSerializer
 from rest_framework.decorators import action
 from django.shortcuts import redirect
 from django.contrib.auth import get_user_model
 import urllib.parse
+from django.conf import settings
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from .models import Transaction
+from .serializers import TransactionSerializer
+from .utils import get_kashier_auth_headers
+# store/views.py
+import requests
+import datetime
+
+
+
 
 User = get_user_model()
 
-class ServiceViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Service.objects.filter(is_active=True)
-    serializer_class = ServiceSerializer
-    permission_classes = [permissions.AllowAny] 
+class TransactionViewSet(viewsets.ModelViewSet):
+    queryset = Transaction.objects.all()
+    
+    def get_serializer_class(self, *args, **kwargs):
+        user=self.request.user
 
-class TransactionViewSet(viewsets.GenericViewSet, 
-                         mixins.ListModelMixin, 
-                         mixins.CreateModelMixin):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-
-        if user.is_staff:
-            return Transaction.objects.all().order_by('-created_at')
-        else:
-            return Transaction.objects.filter(user=user).order_by('-created_at')
-        
-
-
-
-    def get_serializer_class(self):
+        if user.is_authenticated:
+            return UserTransactionSerializer
+        return GuestTransactionSerializer
+    
+    def get_permissions(self):
         if self.action == 'create':
-            return PurchaseSerializer
-        return TransactionSerializer
-
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+    
     def create(self, request, *args, **kwargs):
-      
-        serializer = self.get_serializer(data=request.data, context={'request': request})
         
-        # 2. Run Validation
+        serializer= self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         
-        # 3. Run the Logic (The create method we just wrote)
-        transaction_record = serializer.save()
-
-        # 4. Return Custom Response
-        return Response({
-            "status": "success",
-            "result": getattr(transaction_record, 'api_result', 'Processed'),
-            "transaction_id": transaction_record.id,
-            "new_balance": request.user.balance
-        }, status=status.HTTP_201_CREATED)
+        user=request.user if request.user.is_authenticated else None
+        transaction = serializer.save(user=user)
         
-    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny], url_path='callback')
-    def kashier_callback(self, request):
-        """
-        GET /api/store/transactions/callback/
-        """
-        # 1. Pass the URL parameters (query_params) to the Serializer
-        serializer = DepositSerializer(data=request.query_params, context={'request': request})
- 
+        
+        payload = {
+            "expireAt": str((datetime.datetime.now() + datetime.timedelta(minutes=30)).isoformat() + "Z"),
+            "maxFailureAttempts": 3,
+            "amount": str(transaction.amount),
+            "currency": "EGP",
+            "merchantId": settings.KASHIER_MID,
+            #"mode":"test",
+            "order": str(transaction.merchant_transaction_id),
+            "merchantRedirect": "https://www.google.com",
+            "display": "en",
+            "paymentType": "credit",
+            "type":"external",
+            "allowedMethods": "card,wallet,fawry,instapay,basata",
+            "customer": {
+                "name": user.phone_number if user else "Guest",
+                "email": "",
+                "reference": str(user.id) if user else "guest"
+            }
+        }
+        
         try:
-            
-            serializer.is_valid(raise_exception=True)
-            transaction = serializer.save()
+            url=f"{settings.KASHIER_API_URL}/v3/payment/sessions"
+            headers= get_kashier_auth_headers()
 
-            data = {
-            'transaction_id': transaction.id,
-            'status': transaction.status,
-            'amount': transaction.amount,
-            'result': transaction.description
-              }
+            response = requests.post(url, json=payload, headers= headers)
+            response_data = response.json()
+            
+            if response.status_code in [200, 201, 202]:
+                # Kashier usually returns: { "paymentUrl": "https://..." } OR { "data": { "redirectUrl": "..." } }
+                # We check both spots just to be safe.
+                payment_url = response_data.get('sessionUrl') or \
+                              response_data.get('paymentUrl') or \
+                              response_data.get('data', {}).get('redirectUrl')
+
+                if payment_url:
+                    # 2. SAVE THE ID
+                    # Kashier sent "_id" as the session ID (e.g. "694ab76...")
+                    kashier_id = response_data.get('_id') or response_data.get('kashierOrderId')
+                    
+                    if kashier_id:
+                        transaction.kashier_session_id = kashier_id
+                        transaction.save()
+                    
+                    # 3. RETURN TO FRONTEND
+                    return Response({
+                        "status": "success",
+                        "paymentUrl": payment_url, # <--- This is what React needs!
+                        "transaction_id": transaction.id
+                    }, status=status.HTTP_201_CREATED)
+            
+            print("Kashier Error Response:", response_data)
+            transaction.status = 'FAILED'
+            transaction.save()
+            return Response(response_data, status=response.status_code)  
         
-            params=urllib.parse.urlencode(data)
-        
+        except requests.exceptions.RequestException as e:
+            print("Kashier Exception:", str(e))
+            transaction.status = 'FAILED'
+            transaction.save()
+            return Response({"error":"Kashier service unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+          
+                
+                    
+                    
+                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
-            # 5. Success Redirect (Forcing the file protocol)
-            return redirect(f"https://www.google.com/?{params}")
-
-        except Exception as e:
-            # 4. Failure Redirect
-            # You can print(e) here for debugging logs
-            print("Error:",e)
-            
-            return redirect("https://your-frontend.com/payment-failed")
+    # def create(self,request, *args, **kwargs):
+    #     serializer= self.get_serializer(data=request.data, context={'request': request})
+    #     serializer.is_valid(raise_exception=True)
         
+    #     if request.user.is_authenticated:
+    #         user=request.user
+    #     else:
+    #         user=None
+        
+    #     transaction = serializer.save(user=user)
+        
+    #     payload = {
+    #         "amount": str(transaction.amount),
+    #         "currency": "EGP",
+    #         "merchant_transaction_id": str(transaction.merchant_transaction_id),
+    #         "operation": "purchase",
+    #         "customerName": user.username if user else "Guest",
+    #     }
+        
+    #     try:
+    #         url = f"{settings.KASHIER_API_URL}/payment/session"
+    #         headers = get_kashier_auth_headers()
+    #         response = requests.post(url, json=payload, headers=headers)
+    #         response_data = response.json()
+            
+    #         if response.status_code in [200,201]:
+    #             return Response({
+    #                 "sessionToken": response_data.get("sessionToken"),
+    #                 "merchantTransactionId": str(transaction.merchant_transaction_id),
+    #                 "id": transaction.id
+    #             }, status=status.HTTP_201_CREATED)
+            
+    #         return Response(response_data, status=response.status_code)
+    
+    #     except requests.exceptions.RequestException as e:
+    #         return Response({"error":"Kashier service unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    
+    
+    

@@ -7,5 +7,5 @@ urlpatterns = [
     
     # Auth Routes
     path('', include('authentication.urls')),
-    path('api/store/', include('store.urls')),
+    path('store/', include('store.urls')),
 ]
