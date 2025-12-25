@@ -1,0 +1,7 @@
+El fadel:
+
+
+-Service Search history
+-Payment history for user (add balance top up history wala la2?)
+-IMEI Sickw Implementation with Custom Pricing (20% 30%)
+-Docker
