@@ -34,7 +34,7 @@ env/
 *.sqlite3
 media/
 staticfiles/
-
+*ier_test.py
 # --- React / Node ---
 node_modules/
 build/

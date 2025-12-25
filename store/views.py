@@ -74,15 +74,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
             response_data = response.json()
             
             if response.status_code in [200, 201, 202]:
-                # Kashier usually returns: { "paymentUrl": "https://..." } OR { "data": { "redirectUrl": "..." } }
-                # We check both spots just to be safe.
+        
                 payment_url = response_data.get('sessionUrl') or \
                               response_data.get('paymentUrl') or \
                               response_data.get('data', {}).get('redirectUrl')
 
                 if payment_url:
-                    # 2. SAVE THE ID
-                    # Kashier sent "_id" as the session ID (e.g. "694ab76...")
                     kashier_id = response_data.get('_id') or response_data.get('kashierOrderId')
                     
                     if kashier_id:
@@ -92,7 +89,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
                     # 3. RETURN TO FRONTEND
                     return Response({
                         "status": "success",
-                        "paymentUrl": payment_url, # <--- This is what React needs!
+                        "paymentUrl": payment_url, 
                         "transaction_id": transaction.id
                     }, status=status.HTTP_201_CREATED)
             
