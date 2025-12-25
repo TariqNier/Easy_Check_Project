@@ -49,7 +49,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
             transaction = serializer.save(user=user, status='COMPLETED', is_balance_topup=False)
             
             imei = transaction.service_details.get('imei')
-            print(f"(User) Triggering Unlocking API for IMEI: {imei}")
+            print(f"(User) Triggering API for IMEI: {imei}")
+            #hena hykoon el logic beta3 el imei service. 
             
             return Response({
                 "status": "success",
