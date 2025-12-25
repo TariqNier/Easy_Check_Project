@@ -1,6 +1,29 @@
+# --- Environment Variables (Security - CRITICAL) ---
 .env
-venv
-# Logs
+.env.local
+*.local
+
+# --- Python / Django (Backend) ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+venv/
+env/
+.venv/
+media/
+staticfiles/
+
+# --- Custom Test Scripts ---
+*ier_test.py
+
+# --- React / Node (Frontend) ---
+node_modules/
+dist/
+build/
+.npm
+
+# --- Logs & Debugging ---
 logs
 *.log
 npm-debug.log*
@@ -9,43 +32,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# --- Editor / IDE Settings ---
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# --- Python / Django ---
-__pycache__/
-*.py[cod]
-*$py.class
-venv/
-env/
-*.sqlite3
-media/
-staticfiles/
-*ier_test.py
-# --- React / Node ---
-node_modules/
-build/
-dist/
-.npm
-*.log
-
-# --- Environment Variables (Security) ---
-.env
-.env.local
-
-# --- OS Files ---
+# --- OS / System Files ---
 .DS_Store
 Thumbs.db
