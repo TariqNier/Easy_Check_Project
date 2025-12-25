@@ -1,0 +1,77 @@
+
+.phone-wrapper {
+  width: 100%;
+  position: relative;
+}
+
+.phone-field-style {
+  width: 100% !important;
+  height: 58px !important;
+  background-color: #f9fafb !important;
+  border: 2px solid rgba(24, 24, 24, 0.1) !important;
+  border-radius: 1rem !important;
+  padding-left: 55px !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease-in-out !important;
+  outline: none !important;
+  color: #181818 !important;
+}
+
+.phone-field-style:focus {
+  border-color: #e5fb34 !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 4px rgba(229, 251, 52, 0.2) !important;
+}
+
+.phone-button-style {
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 1rem 0 0 1rem !important;
+  padding-left: 10px !important;
+  width: 50px !important;
+}
+
+.phone-input-container .flag-dropdown.open,
+.phone-input-container .flag-dropdown.open .selected-flag,
+.phone-input-container .selected-flag:hover,
+.phone-input-container .selected-flag:focus {
+  background-color: transparent !important;
+  border-radius: 1rem 0 0 1rem !important;
+}
+
+.phone-button-style .flag,
+.phone-input-container .selected-flag .flag {
+  transform: none !important;
+  transition: none !important;
+}
+
+.phone-input-container .arrow {
+  border-top-color: #666 !important;
+  transition: transform 0.2s !important;
+}
+.phone-input-container .flag-dropdown.open .arrow {
+  transform: rotate(180deg) !important;
+}
+
+/* Dropdown Menu */
+.phone-dropdown-style {
+  border-radius: 1rem !important;
+  border: 1px solid #eee !important;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
+  margin-top: 10px !important;
+  padding: 8px !important;
+  width: 280px !important;
+  overflow-x: hidden !important;
+}
+
+.phone-dropdown-style .country {
+  border-radius: 0.75rem !important;
+  padding: 10px !important;
+  font-weight: 600 !important;
+}
+
+.phone-dropdown-style .country.highlight {
+  background-color: #e5fb3433 !important;
+  color: #000 !important;
+}

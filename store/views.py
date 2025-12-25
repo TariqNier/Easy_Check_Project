@@ -33,7 +33,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return GuestTransactionSerializer
     
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action in ['create', 'kashier_webhook']:
             return [permissions.AllowAny()]
         return [permissions.IsAdminUser()]
     
@@ -54,9 +54,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
             "merchantId": settings.KASHIER_MID,
             #"mode":"test",
             "order": str(transaction.merchant_transaction_id),
-            "merchantRedirect": "https://www.google.com",
+            "merchantRedirect": "http://localhost:5173/",
             "display": "en",
             "paymentType": "credit",
+            "serverWebhook": "https://corinne-nobler-jamir.ngrok-free.dev/store/transactions/webhook/kashier/",
             "type":"external",
             "allowedMethods": "card,wallet,fawry,instapay,basata",
             "customer": {
@@ -90,7 +91,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
                     return Response({
                         "status": "success",
                         "paymentUrl": payment_url, 
-                        "transaction_id": transaction.id
+                        "transaction_id": transaction.id,
+                        "merchant_transaction_id": str(transaction.merchant_transaction_id)
                     }, status=status.HTTP_201_CREATED)
             
             print("Kashier Error Response:", response_data)
@@ -104,10 +106,50 @@ class TransactionViewSet(viewsets.ModelViewSet):
             transaction.save()
             return Response({"error":"Kashier service unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
           
-                
+    @action(detail=False, methods=['post'], url_path='webhook/kashier')
+    def kashier_webhook(self, request):
+  
+        
+        webhook_data = request.data.get('data', {})
+        transaction_id = webhook_data.get('merchantOrderId')
+        payment_status = webhook_data.get('status')
+        
                     
-                    
+        if not transaction_id:
+            return Response({"error": "No Order ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+        
+        try:
+            transaction = Transaction.objects.get(merchant_transaction_id=transaction_id)
+        except Transaction.DoesNotExist:
+            return Response({"error": "Not Found"}, status=status.HTTP_404_NOT_FOUND)
+
+       
+        if transaction.status == 'COMPLETED':
+            return Response({"status": "already_processed"}, status=status.HTTP_200_OK)
+
+        if payment_status == "SUCCESS":
+            transaction.status = 'COMPLETED'
+            
+            
+            if 'orderId' in webhook_data:
+                transaction.kashier_session_id = webhook_data['orderId']
+            
+            transaction.save()
+            print(f"Guest Payment Verified: {transaction_id}")
+
+            
+            if transaction.service_details:
+                imei = transaction.service_details.get('imei')
+                print(f"(Guest) Triggering Unlocking API for IMEI: {imei}")
                 
+        
+        else:
+            transaction.status = 'FAILED'
+            transaction.save()
+            print(f"Payment Failed for: {transaction_id}")
+
+        return Response({"status": "received"}, status=status.HTTP_200_OK)        
 
 
 
