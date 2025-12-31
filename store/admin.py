@@ -20,6 +20,5 @@ class ServiceAdmin(admin.ModelAdmin):
 # Your Transaction Admin (keep as is or update if needed)
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'amount', 'status', 'created_at')
+    list_display = ('id', 'user', 'amount', 'status', 'created_at','merchant_transaction_id')
     list_filter = ('status', 'created_at')
-    

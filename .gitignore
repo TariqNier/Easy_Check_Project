@@ -45,3 +45,4 @@ lerna-debug.log*
 # --- OS / System Files ---
 .DS_Store
 Thumbs.db
+*grok.exe

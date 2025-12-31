@@ -14,10 +14,9 @@ User=get_user_model()
 class Transaction(models.Model):
     STATUS_CHOICES = (
         ('PENDING', 'Pending'),
-        ('AUTHORIZED', 'Authorized (Held)'),
         ('COMPLETED', 'Completed'),
-        ('FAILED', 'Failed'),
-        ('VOIDED', 'Voided (Released)'),  
+        ('FAILED', 'Failed'), 
+        ('REFUNDED','Refunded')
     )
     
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True) 

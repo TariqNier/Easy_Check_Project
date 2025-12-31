@@ -20,14 +20,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self, *args, **kwargs):
         user = self.request.user
         if user.is_authenticated:
-            print("✅ Registered User Detected - Using UserTransactionSerializer")
             return UserTransactionSerializer
-        
-        print("⚠️ Guest User Detected - Using GuestTransactionSerializer")
         return GuestTransactionSerializer
     
     def get_permissions(self):
-        if self.action in ['create', 'kashier_webhook']:
+        if self.action in ['create', 'kashier_webhook','show_order']:
             return [permissions.AllowAny()]
         return [permissions.IsAdminUser()]
     
@@ -111,6 +108,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         Handles the Callback from Kashier (STANDARD MODE).
         Logic: Payment Success -> Mark Completed -> Order Service
         """
+
+        event_type = request.data.get('event')
         webhook_data = request.data.get('data', {})
         transaction_id = webhook_data.get('merchantOrderId')
         payment_status = webhook_data.get('status')
@@ -123,6 +122,16 @@ class TransactionViewSet(viewsets.ModelViewSet):
             transaction = Transaction.objects.get(merchant_transaction_id=transaction_id)
         except Transaction.DoesNotExist:
             return Response({"error": "Not Found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if event_type == 'refund':
+            print(f"🔄 Refund Webhook Received for Order #{transaction.id}")
+            print(f"Merchant TX ID: {transaction.merchant_transaction_id}")
+            if transaction.status != 'REFUNDED':
+                print(f"🔄 Refund Detected for Order #{transaction.id}")
+                transaction.status = 'REFUNDED'
+                transaction.save()
+            return Response({"status": "refund_processed"}, status=status.HTTP_200_OK)
+
 
         if transaction.status == 'COMPLETED':
              return Response({"status": "already_processed"}, status=status.HTTP_200_OK)
@@ -138,14 +147,14 @@ class TransactionViewSet(viewsets.ModelViewSet):
             
             transaction.save()
             
-            # 2. Add to User Balance (If Topup)
+    
             if transaction.is_balance_topup and transaction.user:
                 transaction.user.balance += transaction.amount
                 transaction.user.save()
                 print(f"Topup Successful for User {transaction.user.id}")
 
             # 3. Order Service (If Purchase)
-            elif transaction.service_details:
+            elif transaction.service_details and event_type != 'refund':
                 place_sickw_order(transaction)
                 print(f"Service Ordered for #{transaction.id}")
                 

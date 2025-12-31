@@ -6,19 +6,60 @@ from rest_framework import serializers
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
+from .utils import is_valid_luhn
 
 from .models import Service, Transaction
 User = get_user_model()
 
+import re # Import Regex for serial validation
 
+class ServiceDetailsValidationMixin:
+    def validate_service_details(self, value):
+        # 1. Ensure value is a dictionary
+        if not isinstance(value, dict):
+            return value
 
-class TransactionSerializer(serializers.ModelSerializer):
+        imei = value.get('imei')
+        serial = value.get('serial') 
+
+   
+        if imei:
+            imei_str = str(imei)
+            
+            if not imei_str.isdigit() or len(imei_str) != 15:
+                raise serializers.ValidationError(
+                    "IMEI must be exactly 15 digits and contain only numbers."
+                )
+
+            if not is_valid_luhn(imei_str):
+                raise serializers.ValidationError(
+                    "Invalid IMEI number (Checksum failed). Please check for typos."
+                )
+
+        elif serial:
+            serial_str = str(serial).strip().upper()
+            
+           
+            if len(serial_str) < 4 or len(serial_str) > 20:
+                raise serializers.ValidationError(
+                    "Serial Number seems too short or too long."
+                )
+
+         
+            if not re.match(r'^[A-Z0-9]+$', serial_str):
+                raise serializers.ValidationError(
+                    "Serial Number must contain only letters and numbers (No spaces or dashes)."
+                )
+      
+        return value
+
+class TransactionSerializer(serializers.ModelSerializer,ServiceDetailsValidationMixin):
     class Meta:
         model = Transaction
         
         fields = [
             'merchant_transaction_id', 
-            'status'
+            'status',
         ]
         
         read_only_fields = ['merchant_transaction_id', 'status']
@@ -67,7 +108,9 @@ class UserTransactionSerializer(TransactionSerializer):
             amount = attrs.get('amount')
             if not amount or amount <=0:
                  raise serializers.ValidationError({"amount": "Amount is required for balance top-up."})
-        
+            if amount < 10:
+                raise serializers.ValidationError({"amount": "Top-up amount must be atleast 10 EGP."})
+            
         return attrs
     
     
