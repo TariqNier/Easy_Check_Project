@@ -31,6 +31,8 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
+
 ALLOWED_HOSTS = ['*']
 
 AUTH_USER_MODEL = 'authentication.User'
@@ -172,6 +174,7 @@ CORS_CREDENTIALS_ALLOWED = True
 KASHIER_MID = os.getenv("MERCHANT_ID") 
 KASHIER_API_KEY = os.getenv("KASHIER_PAYMENT_API_KEY")
 KASHIER_SECRET_KEY = os.getenv("KASHIER_SERVER_KEY") 
+KASHIER_WEBHOOK_URL = os.getenv('KASHIER_WEBHOOK_URL', f"{BASE_URL}/store/transactions/webhook/kashier/")
 
 # 2. Environment Setup
 KASHIER_TEST_MODE = True 

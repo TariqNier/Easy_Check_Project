@@ -3,14 +3,21 @@ import requests
 from django.conf import settings
 from django.shortcuts import redirect
 from django.contrib.auth import get_user_model
+from django.db import transaction as db_transaction # Renamed to avoid conflict with model
+from django.db.models import F
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
 from .models import Service, Transaction
-from .serializers import UserTransactionSerializer, GuestTransactionSerializer,UserServiceSerializer,AdminServiceSerializer
-from .utils import get_kashier_auth_headers, place_sickw_order,sync_services_if_expired
+from .serializers import (
+    UserTransactionSerializer, 
+    GuestTransactionSerializer,
+    UserServiceSerializer,
+    AdminServiceSerializer
+)
+from .utils import get_kashier_auth_headers, place_sickw_order, sync_services_if_expired
 
 User = get_user_model()
 
@@ -18,13 +25,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     
     def get_serializer_class(self, *args, **kwargs):
-        user = self.request.user
-        if user.is_authenticated:
+        if self.request.user.is_authenticated:
             return UserTransactionSerializer
         return GuestTransactionSerializer
     
     def get_permissions(self):
-        if self.action in ['create', 'kashier_webhook','show_order']:
+        if self.action in ['create', 'kashier_webhook', 'show_order']:
             return [permissions.AllowAny()]
         return [permissions.IsAdminUser()]
     
@@ -34,83 +40,92 @@ class TransactionViewSet(viewsets.ModelViewSet):
   
         user = request.user if request.user.is_authenticated else None
         
-
-        transaction = serializer.save(user=user)
+        # Save transaction (Serializer handles atomic locks for "Wallet Spending")
+        txn = serializer.save(user=user)
         
-        # PATH A: REGISTERED USER (Wallet Balance)
-  
-        if transaction.status == 'COMPLETED':
-            place_sickw_order(transaction)
-            
+        # --- PATH A: REGISTERED USER (Wallet Balance) ---
+        if txn.status == 'COMPLETED':
+            place_sickw_order(txn)
             return Response({
-                "transaction_id": transaction.id,
-                "transaction_status": transaction.status,
+                "transaction_id": txn.id,
+                "transaction_status": txn.status,
                 "new_balance": user.balance, 
-                "api_result": transaction.service_details.get('api_result') 
+                "api_result": txn.service_details.get('api_result') 
             }, status=status.HTTP_201_CREATED)
             
-        merchant_redirect_logic = "http://localhost:8000/store/transactions/show-order/?merchant_transaction_id=" + str(transaction.merchant_transaction_id) if user is None else "http://localhost:8000/store/transactions/"
-        # PATH B: GUEST / TOPUP (Standard Kashier Payment)
+        # --- PATH B: GUEST / TOPUP (Kashier Payment) ---
+        
+        # [Optimization] Don't hardcode localhost. Use dynamic base URL or settings.
+        base_url = getattr(settings, 'BASE_URL', f"{request.scheme}://{request.get_host()}")
+        
+        if user:
+             redirect_url = f"{base_url}/store/transactions/"
+        else:
+             redirect_url = f"{base_url}/store/transactions/show-order/?merchant_transaction_id={txn.merchant_transaction_id}"
+
+        # [Optimization] Use settings for the webhook URL to avoid ngrok issues in production
+        webhook_url = getattr(settings, 'KASHIER_WEBHOOK_URL', f"{base_url}/store/transactions/webhook/kashier/")
+
         payload = {
-            "expireAt": str((datetime.datetime.now() + datetime.timedelta(minutes=30)).isoformat() + "Z"),
+            "expireAt": (datetime.datetime.now() + datetime.timedelta(minutes=30)).isoformat() + "Z",
             "maxFailureAttempts": 3,
-            "amount": str(transaction.amount) ,
+            "amount": str(txn.amount),
             "currency": "EGP",
             "merchantId": settings.KASHIER_MID,
-            "order": str(transaction.merchant_transaction_id),
-            "merchantRedirect": merchant_redirect_logic, 
+            "order": str(txn.merchant_transaction_id),
+            "merchantRedirect": redirect_url, 
             "display": "en",
             "paymentType": "card",
-            "serverWebhook": "https://corinne-nobler-jamir.ngrok-free.dev/store/transactions/webhook/kashier/", 
+            "serverWebhook": webhook_url,
             "type": "external",
             "allowedMethods": "card,wallet,fawry,instapay,basata",
             "customer": {
                 "name": str(user.phone_number) if user else "Guest",
-                "email": "",
+                "email": "", # Optional: Add email if you have it
                 "reference": str(user.id) if user else "guest"
             }
         }
+
         try:
-            url = f"{settings.KASHIER_API_URL}/v3/payment/sessions"
-            headers = get_kashier_auth_headers()
-            response = requests.post(url, json=payload, headers=headers)
-            response_data = response.json()
+            # [Optimization] Use a timeout to prevent hanging if Kashier is down
+            response = requests.post(
+                f"{settings.KASHIER_API_URL}/v3/payment/sessions",
+                json=payload,
+                headers=get_kashier_auth_headers(),
+                timeout=10 
+            )
+            response.raise_for_status() # Raise error for 4xx/5xx codes
             
-      
+            response_data = response.json()
             payment_url = response_data.get('sessionUrl')
-               
-        
+                
             if payment_url:
                 kashier_id = response_data.get('_id') or response_data.get('kashierOrderId')
                 if kashier_id:
-                    transaction.kashier_session_id = kashier_id
-                    transaction.save()
+                    txn.kashier_session_id = kashier_id
+                    txn.save(update_fields=['kashier_session_id'])
                         
                 return Response({
-                            "status": "success",
-                            "paymentUrl": payment_url, 
-                            "transaction_id": transaction.id,
-                            "merchant_transaction_id": str(transaction.merchant_transaction_id)
-                        }, status=status.HTTP_201_CREATED)
+                    "status": "success",
+                    "paymentUrl": payment_url, 
+                    "transaction_id": txn.id,
+                    "merchant_transaction_id": str(txn.merchant_transaction_id)
+                }, status=status.HTTP_201_CREATED)
                 
-            transaction.status = 'FAILED'
-            transaction.save()
-            return Response(response_data, status=response.status_code)  
+            # If no URL returned
+            txn.status = 'FAILED'
+            txn.save(update_fields=['status'])
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)  
             
-        except requests.exceptions.RequestException:
-            transaction.status = 'FAILED'
-            transaction.save()
-            return Response({"error":"Kashier service unreachable"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except requests.exceptions.RequestException as e:
+            txn.status = 'FAILED'
+            txn.save(update_fields=['status'])
+            return Response({"error": f"Payment Gateway Error: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
           
     @action(detail=False, methods=['post'], url_path='webhook/kashier')
     def kashier_webhook(self, request):
-        """
-        Handles the Callback from Kashier (STANDARD MODE).
-        Logic: Payment Success -> Mark Completed -> Order Service
-        """
-
-        event_type = request.data.get('event')
         webhook_data = request.data.get('data', {})
+        event_type = request.data.get('event')
         transaction_id = webhook_data.get('merchantOrderId')
         payment_status = webhook_data.get('status')
         kashier_txn_id = webhook_data.get('transactionId')
@@ -118,73 +133,70 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if not transaction_id:
             return Response({"error": "No Order ID"}, status=status.HTTP_400_BAD_REQUEST)
         
-        try:
-            transaction = Transaction.objects.get(merchant_transaction_id=transaction_id)
-        except Transaction.DoesNotExist:
-            return Response({"error": "Not Found"}, status=status.HTTP_404_NOT_FOUND)
+        # [Safety] Atomic block ensures status update + balance update happen together
+        with db_transaction.atomic():
+            try:
+                # Lock the row to prevent simultaneous webhook updates
+                txn = Transaction.objects.select_for_update().get(merchant_transaction_id=transaction_id)
+            except Transaction.DoesNotExist:
+                return Response({"error": "Not Found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if event_type == 'refund':
-            print(f"🔄 Refund Webhook Received for Order #{transaction.id}")
-            print(f"Merchant TX ID: {transaction.merchant_transaction_id}")
-            if transaction.status != 'REFUNDED':
-                print(f"🔄 Refund Detected for Order #{transaction.id}")
-                transaction.status = 'REFUNDED'
-                transaction.save()
-            return Response({"status": "refund_processed"}, status=status.HTTP_200_OK)
+            # --- HANDLE REFUND ---
+            if event_type == 'refund':
+                if txn.status != 'REFUNDED':
+                    txn.status = 'REFUNDED'
+                    txn.save(update_fields=['status'])
+                return Response({"status": "refund_processed"}, status=status.HTTP_200_OK)
 
-
-        if transaction.status == 'COMPLETED':
-             return Response({"status": "already_processed"}, status=status.HTTP_200_OK)
-        
-        if payment_status == "SUCCESS":
-            # 1. IMMEDIATE COMPLETION (No Auth/Capture)
-            transaction.status = 'COMPLETED'
+            # --- HANDLE DUPLICATE ---
+            if txn.status == 'COMPLETED':
+                 return Response({"status": "already_processed"}, status=status.HTTP_200_OK)
             
-            if kashier_txn_id:
-                transaction.kashier_transaction_id = kashier_txn_id 
-            if 'orderId' in webhook_data:
-                transaction.kashier_session_id = webhook_data['orderId']
-            
-            transaction.save()
-            
-    
-            if transaction.is_balance_topup and transaction.user:
-                transaction.user.balance += transaction.amount
-                transaction.user.save()
-                print(f"Topup Successful for User {transaction.user.id}")
-
-            # 3. Order Service (If Purchase)
-            elif transaction.service_details and event_type != 'refund':
-                place_sickw_order(transaction)
-                print(f"Service Ordered for #{transaction.id}")
+            # --- HANDLE SUCCESS ---
+            if payment_status == "SUCCESS":
+                txn.status = 'COMPLETED'
                 
-            transaction.save()
-            
-        else:
-            transaction.status = 'FAILED'
-            transaction.save()
-            print(f"Payment Failed for: {transaction_id}")
+                if kashier_txn_id:
+                    txn.kashier_transaction_id = kashier_txn_id 
+                if 'orderId' in webhook_data:
+                    txn.kashier_session_id = webhook_data['orderId']
+                
+                txn.save() 
+                
+                # 1. BALANCE TOP-UP
+                if txn.is_balance_topup and txn.user:
+                    # [Safety] Use F() expressions for atomic addition.
+                    # This prevents race conditions if two webhooks fire at once.
+                    txn.user.balance = F('balance') + txn.amount
+                    txn.user.save(update_fields=['balance'])
+                    txn.user.refresh_from_db() # Reload to get clean number (optional)
+
+                # 2. ORDER SERVICE (Direct Pay)
+                elif txn.service_details and event_type != 'refund':
+                    place_sickw_order(txn)
+                    
+            else:
+                txn.status = 'FAILED'
+                txn.save(update_fields=['status'])
 
         return Response({"status": "received"}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'], url_path='show-order')
-    def show_order(self,request):
+    def show_order(self, request):
         merchant_tx_id = request.query_params.get('merchant_transaction_id')
         if not merchant_tx_id:
             return Response({"error": "merchant_transaction_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            transaction = Transaction.objects.get(merchant_transaction_id=merchant_tx_id)
+            txn = Transaction.objects.get(merchant_transaction_id=merchant_tx_id)
         except Transaction.DoesNotExist:
             return Response({"error": "Transaction not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = GuestTransactionSerializer(transaction)
+        serializer = GuestTransactionSerializer(txn)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
-
-    
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -201,8 +213,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
             return Service.objects.all() 
         return Service.objects.filter(is_active=True)
     
-    
     def list(self, request, *args, **kwargs):
+        # Ensure this function is fast/optimized, or move to Celery later
         sync_services_if_expired()
-    
         return super().list(request, *args, **kwargs)
