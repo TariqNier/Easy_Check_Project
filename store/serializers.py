@@ -1,12 +1,13 @@
-#store/serializers.py
+# store/serializers.py
+import requests
+from decimal import Decimal
+from django.conf import settings
 from rest_framework import serializers
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import Service, Transaction
-
 from django.contrib.auth import get_user_model
-from decimal import Decimal
 
+from .models import Service, Transaction
 User = get_user_model()
 
 
@@ -16,7 +17,6 @@ class TransactionSerializer(serializers.ModelSerializer):
         model = Transaction
         
         fields = [
-            'amount', 
             'merchant_transaction_id', 
             'status'
         ]
@@ -34,14 +34,66 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 class UserTransactionSerializer(TransactionSerializer):
 
+
     class Meta(TransactionSerializer.Meta):
-        fields = TransactionSerializer.Meta.fields + ['service_details']
+        fields = TransactionSerializer.Meta.fields + ['service_details', 'amount']
+        
+ 
+        extra_kwargs = {
+            'amount': {'required': False},
+            
+        }
+    
+    
+    def validate(self, attrs):
+        user = self.context['request'].user
+        service_details = attrs.get('service_details')
+        
+        # --- SCENARIO A: Buying a Service (Strict Mode) ---
+        if service_details:
+            service_id = service_details.get('service_id')
+            try:
+                service = Service.objects.get(service_id=str(service_id))
+            except Service.DoesNotExist:
+                raise serializers.ValidationError({
+                    "service_details": f"Service ID '{service_id}' does not exist in our system."
+                })
+ 
+            if user.balance < service.final_price:
+                raise serializers.ValidationError({
+                    "amount": f"Insufficient balance. Cost: {service.final_price} EGP. Balance: {user.balance} EGP."
+                })
+        else:
+            amount = attrs.get('amount')
+            if not amount or amount <=0:
+                 raise serializers.ValidationError({"amount": "Amount is required for balance top-up."})
+        
+        return attrs
+    
+    
+
 
     def create(self, validated_data):
-        if not validated_data.get('service_details'):
-            validated_data['is_balance_topup'] = True
-
+        user = self.context['request'].user
+        
+        service_details=validated_data.get('service_details')
+        if service_details:
+            service=Service.objects.get(service_id=service_details['service_id'])
+            amount = service.final_price
+   
+            user.balance -= amount
+            user.save()
             
+    
+            validated_data['amount'] = amount
+            validated_data['is_balance_topup'] = False
+            validated_data['status'] = 'COMPLETED' 
+            
+        else:
+            # --- TOPUP (Kashier) ---
+            validated_data['is_balance_topup'] = True
+            validated_data['status'] = 'PENDING'  
+
         return super().create(validated_data)
 
 class GuestTransactionSerializer(TransactionSerializer):
@@ -50,15 +102,28 @@ class GuestTransactionSerializer(TransactionSerializer):
     class Meta(TransactionSerializer.Meta):
         fields = TransactionSerializer.Meta.fields + ['service_details']
     
-    def create(self, validated_data):
-        validated_data['is_balance_topup'] = False
-        return super().create(validated_data)
-    
-    def validate(self, data):
-        if not data.get("service_details"):
-            raise serializers.ValidationError("Service details (IMEI/Service ID) are required for guest purchases.")
+    def validate(self, attrs):
+        details = attrs.get('service_details')
+
+        service_id = details.get('service_id')
+
+        try:
+            service = Service.objects.get(service_id=service_id)
+        except Service.DoesNotExist:
+            raise serializers.ValidationError({
+                    "service_details": f"Service ID '{service_id}' does not exist in our system."
+                })
+ 
+
+        real_price = service.final_price
         
-        return data
+        attrs['amount'] = real_price
+        
+        return attrs
+
+    def create(self, validated_data):
+   
+        return Transaction.objects.create(**validated_data)
 
 
 
@@ -69,8 +134,62 @@ class GuestTransactionSerializer(TransactionSerializer):
 
 
 
-class ServiceSerializer(serializers.ModelSerializer):
+class UserServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
-        fields = ['id', 'name', 'service_id', 'price', 'description', 'is_active']
+        fields = [ 'name', 'service_id', 'final_price', 'description']
+        
+class AdminServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Service
+        fields = '__all__'
 
+    
+    # def validate(self, attrs):
+    #     user = self.context['request'].user
+    #     service_details = attrs.get('service_details')
+        
+    #     if service_details:
+    #         service_id = service_details.get('service_id')
+            
+    #         try:
+    #             api_key = getattr(settings, 'SICKW_API_KEY', None)
+    #             if not api_key:
+    #                 raise serializers.ValidationError({"error": "Server configuration error (Missing API Key)."})
+
+    #             response = requests.post("https://sickw.com/api.php", data={'key': api_key, 'action': 'services'})
+    #             data = response.json()
+    #             service_list = data.get("Service List", [])
+                
+    #             sickw_item = next((item for item in service_list if item['service'] == str(service_id)), None)
+                
+    #             if not sickw_item:
+    #                 raise serializers.ValidationError({"service_details": "This service is currently unavailable on Sickw."})
+                
+    #             live_cost = Decimal(sickw_item['price'])
+                
+    #             try:
+    #                 local_service = Service.objects.get(service_id=str(service_id))
+    #                 percentage = local_service.price_increase_percentage
+    #             except Service.DoesNotExist:
+    #                 percentage = Decimal(10.00)
+                
+    #             increase = (live_cost * percentage) / 100
+    #             final_amount = round(live_cost + increase, 2)
+                
+    #             attrs['amount'] = final_amount
+                
+    #         except requests.exceptions.RequestException as e:
+    #             print(f"❌ SICKW CONNECTION ERROR: {e}") 
+    #             raise serializers.ValidationError({"error": f"Unable to verify price: {str(e)}"})
+
+    #         if user.balance < final_amount:
+    #             raise serializers.ValidationError({
+    #                 "amount": f"Insufficient balance. The live price is {final_amount} EGP, but you have {user.balance} EGP."
+    #             })
+                
+    #     else:
+    #         if not attrs.get('amount'):
+    #              raise serializers.ValidationError({"amount": "Amount is required for balance top-up."})
+        
+    #     return attrs

@@ -5,3 +5,96 @@ El fadel:
 -Payment history for user (add balance top up history wala la2?)
 -IMEI Sickw Implementation with Custom Pricing (20% 30%)
 -Docker
+
+
+update (29/12/2025):
+- i finished the custom pricing thing + modified admin panel to allow custom pricing
+
+whats left:
+
+-Service Search history
+-Payment history for user (add balance top up history wala la2?)
+-IMEI Sickw Implementation fully:
+    1- for guest
+    2- for user
+-Docker
+-imei number validation (luhn algorithm, allow serial numbers, tac address check(?) )
+
+- i should test using my imei(my serial number actually) and ask eng ahmed to use up 0.01 dollars 
+- please review gemini's code cuz it keeps authorizing without capturing if the result is valid. utils.py to be exact
+- write your own code, why not? simplify it you know
+do one or the other:
+1- erase completely what gemini wrote and write your own captue,auth and all that stuff
+2- use gemini code as reference and modify code.
+3ala Allah
+
+
+
+
+#########################################################
+
+
+The Plan: "Auth & Capture" Flow
+1. Database (models.py)
+We need to store the specific Kashier Transaction ID.
+
+Why? When you create an order, you get an Order ID (e.g., your UUID). But when the customer pays, Kashier generates a Transaction ID (e.g., TX-12345).
+
+To Void or Capture a payment later, Kashier's API requires that specific TX-12345 ID.
+
+Action: Add kashier_transaction_id field to the Transaction model.
+
+2. The Workers (utils.py)
+You currently have place_sickw_order. You are missing the tools to actually talk to Kashier's backend for the advanced stuff.
+
+Action: Add get_kashier_fep_url() (Helper for Test vs Live URLs).
+
+Action: Add capture_payment(transaction) (Sends "Give me the money" command).
+
+Action: Add void_payment(transaction) (Sends "Release the money" command).
+
+3. The Trigger (serializers.py & views.py - Create)
+Action: Ensure the creation logic sets the status to PENDING.
+
+Action: Ensure the create view does not capture money immediately. (Note: You usually configure "Pre-Authorization" as the default in your Kashier Dashboard settings, so the code just initiates a standard session).
+
+4. The Brain (views.py - Webhook)
+This is where the magic happens. We need to rewrite the webhook to be smarter.
+
+Current: Success -> Mark Completed -> Sync Sickw.
+
+New Logic:
+
+Receive Webhook -> Save TX-ID.
+
+Mark AUTHORIZED (Money Held).
+
+Run place_sickw_order(transaction).
+
+IF True (Good IMEI): Call capture_payment -> Mark COMPLETED.
+
+IF False (Bad IMEI): Call void_payment -> Mark VOIDED.
+
+Detailed Checklist
+Step 1: store/models.py
+Add kashier_transaction_id = models.CharField(...).
+
+Update STATUS_CHOICES to include AUTHORIZED and VOIDED.
+
+Step 2: store/utils.py
+Keep your place_sickw_order (It looks good! It returns False on error, which triggers the Void).
+
+Add the capture_payment and void_payment functions using requests.put.
+
+Step 3: store/serializers.py
+No major logic changes needed here, just ensuring amount is calculated correctly.
+
+Step 4: store/views.py
+create: Just initiates the payment link.
+
+kashier_webhook: MAJOR UPDATE. This function will now orchestrate the entire "Check -> Capture/Void" logic.
+
+Step 5: Management Command (Sync)
+Plan: Create a file management/commands/sync_sickw.py.
+
+Execution: We will use cron (Linux) or Celery to run python manage.py sync_sickw every 6 hours. We will do this last after the payment flow works.

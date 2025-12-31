@@ -1,16 +1,25 @@
-#store/admin.py
+# store/admin.py
 from django.contrib import admin
 from .models import Service, Transaction
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
-    # What columns to show in the list
-    list_display = ('name', 'service_id', 'price', 'is_active')
+    # Show these columns in the list
+    list_display = ('name', 'service_id', 'provider_price', 'price_increase_percentage', 'final_price', 'is_active')
     
-    # Allows you to edit these directly in the list view (Fast!)
-    list_editable = ('price', 'is_active')
-    
-    # Add a search bar to find services by name
+    # Allow searching by name or ID
     search_fields = ('name', 'service_id')
+    
+    list_per_page = 15
+    
+    # Allow editing the % and Active status directly from the list view (super convenient!)
+    list_editable = ('price_increase_percentage', 'is_active') 
+    
+    list_filter = ('is_active',)
 
-admin.site.register(Transaction)
+# Your Transaction Admin (keep as is or update if needed)
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'amount', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    

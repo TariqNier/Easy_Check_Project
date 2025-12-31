@@ -176,6 +176,10 @@ KASHIER_SECRET_KEY = os.getenv("KASHIER_SERVER_KEY")
 # 2. Environment Setup
 KASHIER_TEST_MODE = True 
 
+CONVERSION_API_KEY = os.getenv("CONVERSION_API_KEY")
+
+SICKW_API_KEY = os.getenv("SICKW_API_KEY")
+
 if KASHIER_TEST_MODE:
     KASHIER_API_URL = "https://test-api.kashier.io" 
 else:
