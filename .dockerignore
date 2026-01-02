@@ -1,8 +1,15 @@
+venv/
+.git/
+__pycache__/
+*.pyc
+.env
+db.sqlite3
 # --- Environment Variables (Security - CRITICAL) ---
 .env
 .env.local
 *.local
-
+*grok.exe
+ngrok.exe
 # --- Python / Django (Backend) ---
 __pycache__/
 *.py[cod]
@@ -41,7 +48,8 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
-*grok.exe
+
 # --- OS / System Files ---
 .DS_Store
 Thumbs.db
+*grok.exe
