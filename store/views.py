@@ -14,7 +14,9 @@ from .serializers import (
     UserTransactionSerializer, 
     GuestTransactionSerializer,
     UserServiceSerializer,
-    AdminServiceSerializer
+    AdminServiceSerializer,
+    WalletHistorySerializer,
+    ServiceHistorySerializer
 )
 from .utils import get_kashier_auth_headers, place_sickw_order, sync_services_if_expired
 
@@ -192,6 +194,43 @@ class TransactionViewSet(viewsets.ModelViewSet):
             return Response({"error": "Transaction not found"}, status=status.HTTP_404_NOT_FOUND)
         
         serializer = GuestTransactionSerializer(txn)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['get'], url_path='wallet-history')
+    def wallet_history(self, request):
+ 
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        transactions = Transaction.objects.filter(user=user).order_by('-created_at')
+        
+      
+        page = self.paginate_queryset(transactions)
+        if page is not None:
+            serializer = WalletHistorySerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = WalletHistorySerializer(transactions, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='service-history')
+    def service_history(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+           
+        transactions = Transaction.objects.filter(
+            user=user, 
+            is_balance_topup=False
+        ).order_by('-created_at')
+        
+        page = self.paginate_queryset(transactions)
+        if page is not None:
+            serializer = ServiceHistorySerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = ServiceHistorySerializer(transactions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 class ServiceViewSet(viewsets.ModelViewSet):

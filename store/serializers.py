@@ -143,3 +143,72 @@ class AdminServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = '__all__'
+        
+class WalletHistorySerializer(serializers.ModelSerializer):
+    transaction_type = serializers.SerializerMethodField()
+    formatted_amount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id', 
+            'created_at', 
+            'status', 
+            'amount', 
+            'transaction_type', 
+            'formatted_amount'
+        ]
+
+    def get_transaction_type(self, obj):
+        return "Top-up" if obj.is_balance_topup else "Purchase"
+
+    def get_formatted_amount(self, obj):
+ 
+        sign = "+" if obj.is_balance_topup else "-"
+        return f"{sign}{obj.amount}"
+
+class ServiceHistorySerializer(serializers.ModelSerializer):
+
+    service_name = serializers.SerializerMethodField()
+    item_identifier = serializers.SerializerMethodField() # IMEI or Serial
+    result_text = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id', 
+            'created_at', 
+            'status', 
+            'service_name', 
+            'item_identifier', 
+            'result_text',
+            'sickw_order_id'
+        ]
+
+    def get_service_name(self, obj):
+        details = obj.service_details or {}
+
+        return details.get('service_name') or f"Service #{details.get('service_id')}"
+
+    def get_item_identifier(self, obj):
+        details = obj.service_details or {}
+        return details.get('imei') or details.get('serial') or "N/A"
+
+    def get_result_text(self, obj):
+    
+        details = obj.service_details or {}
+        api_result = details.get('api_result')
+        
+        if not api_result:
+            return None
+            
+        if isinstance(api_result, list):
+            return ", ".join(map(str, api_result))
+
+        if isinstance(api_result, str):
+            return api_result
+            
+        if isinstance(api_result, dict):
+            return api_result.get('result') or api_result.get('status')
+    
+        return str(api_result)
