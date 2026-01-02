@@ -15,7 +15,7 @@ media/
 staticfiles/
 
 # --- Custom Test Scripts ---
-*ier_test.py
+*_test.py
 
 # --- React / Node (Frontend) ---
 node_modules/
@@ -45,3 +45,4 @@ lerna-debug.log*
 # --- OS / System Files ---
 .DS_Store
 Thumbs.db
+*grok.exe

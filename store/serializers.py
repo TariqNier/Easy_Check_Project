@@ -1,26 +1,50 @@
-#store/serializers.py
-from rest_framework import serializers
-from django.db import transaction
-from django.shortcuts import get_object_or_404
-from .models import Service, Transaction
-
-from django.contrib.auth import get_user_model
+import re
 from decimal import Decimal
+from django.conf import settings
+from django.db import transaction
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+from .models import Service, Transaction
+from .utils import is_valid_luhn
 
 User = get_user_model()
 
+class ServiceDetailsValidationMixin:
+    def validate_service_details(self, value):
+        if not isinstance(value, dict):
+            return value
 
+        imei = value.get('imei')
+        serial = value.get('serial') 
 
-class TransactionSerializer(serializers.ModelSerializer):
+        if imei:
+            imei_str = str(imei)
+            if not imei_str.isdigit() or len(imei_str) != 15:
+                raise serializers.ValidationError(
+                    "IMEI must be exactly 15 digits and contain only numbers."
+                )
+            if not is_valid_luhn(imei_str):
+                raise serializers.ValidationError(
+                    "Invalid IMEI number (Checksum failed). Please check for typos."
+                )
+
+        elif serial:
+            serial_str = str(serial).strip().upper()
+            if len(serial_str) < 4 or len(serial_str) > 20:
+                raise serializers.ValidationError(
+                    "Serial Number seems too short or too long."
+                )
+            if not re.match(r'^[A-Z0-9]+$', serial_str):
+                raise serializers.ValidationError(
+                    "Serial Number must contain only letters and numbers (No spaces or dashes)."
+                )
+      
+        return value
+
+class TransactionSerializer(serializers.ModelSerializer, ServiceDetailsValidationMixin):
     class Meta:
         model = Transaction
-        
-        fields = [
-            'amount', 
-            'merchant_transaction_id', 
-            'status'
-        ]
-        
+        fields = ['merchant_transaction_id', 'status']
         read_only_fields = ['merchant_transaction_id', 'status']
 
     def validate_amount(self, data):
@@ -28,21 +52,64 @@ class TransactionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("The payment amount must be greater than zero.")
         return data
 
-
-    
-# store/serializers.py
-
 class UserTransactionSerializer(TransactionSerializer):
-
     class Meta(TransactionSerializer.Meta):
-        fields = TransactionSerializer.Meta.fields + ['service_details']
+        fields = TransactionSerializer.Meta.fields + ['service_details', 'amount']
+        extra_kwargs = {
+            'amount': {'required': False},
+        }
+    
+    def validate(self, attrs):
+        user = self.context['request'].user
+        service_details = attrs.get('service_details')
+        
+        if service_details:
+            service_id = service_details.get('service_id')
+            try:
+                service = Service.objects.get(service_id=str(service_id))
+            except Service.DoesNotExist:
+                raise serializers.ValidationError({
+                    "service_details": f"Service ID '{service_id}' does not exist in our system."
+                })
+ 
+            if user.balance < service.final_price:
+                raise serializers.ValidationError({
+                    "amount": f"Insufficient balance. Cost: {service.final_price} EGP. Balance: {user.balance} EGP."
+                })
+            
+            attrs['service_instance'] = service
+        else:
+            amount = attrs.get('amount')
+            if not amount or amount <= 0:
+                 raise serializers.ValidationError({"amount": "Amount is required for balance top-up."})
+            if amount < 10:
+                raise serializers.ValidationError({"amount": "Top-up amount must be atleast 10 EGP."})
+            
+        return attrs
 
     def create(self, validated_data):
-        if not validated_data.get('service_details'):
-            validated_data['is_balance_topup'] = True
-
+        user = self.context['request'].user
+        service_instance = validated_data.pop('service_instance', None)
+        
+        with transaction.atomic():
+            if service_instance:
+                user_locked = User.objects.select_for_update().get(pk=user.pk)
+                amount = service_instance.final_price
+        
+                if user_locked.balance < amount:
+                     raise serializers.ValidationError("Insufficient balance.")
+   
+                user_locked.balance -= amount
+                user_locked.save()
             
-        return super().create(validated_data)
+                validated_data['amount'] = amount
+                validated_data['is_balance_topup'] = False
+                validated_data['status'] = 'COMPLETED' 
+            else:
+                validated_data['is_balance_topup'] = True
+                validated_data['status'] = 'PENDING'  
+
+            return super().create(validated_data)
 
 class GuestTransactionSerializer(TransactionSerializer):
     service_details = serializers.JSONField(required=True) 
@@ -50,27 +117,29 @@ class GuestTransactionSerializer(TransactionSerializer):
     class Meta(TransactionSerializer.Meta):
         fields = TransactionSerializer.Meta.fields + ['service_details']
     
+    def validate(self, attrs):
+        details = attrs.get('service_details')
+        service_id = details.get('service_id')
+
+        try:
+            service = Service.objects.get(service_id=service_id)
+        except Service.DoesNotExist:
+            raise serializers.ValidationError({
+                    "service_details": f"Service ID '{service_id}' does not exist in our system."
+                })
+ 
+        attrs['amount'] = service.final_price
+        return attrs
+
     def create(self, validated_data):
-        validated_data['is_balance_topup'] = False
-        return super().create(validated_data)
-    
-    def validate(self, data):
-        if not data.get("service_details"):
-            raise serializers.ValidationError("Service details (IMEI/Service ID) are required for guest purchases.")
-        
-        return data
+        return Transaction.objects.create(**validated_data)
 
-
-
-
-
-
-
-
-
-
-class ServiceSerializer(serializers.ModelSerializer):
+class UserServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
-        fields = ['id', 'name', 'service_id', 'price', 'description', 'is_active']
-
+        fields = ['name', 'service_id', 'final_price', 'description']
+        
+class AdminServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Service
+        fields = '__all__'
