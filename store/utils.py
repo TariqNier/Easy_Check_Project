@@ -15,32 +15,51 @@ def get_kashier_auth_headers():
         "Content-Type": "application/json"
     }
 
-def verify_kashier_signature(data, incoming_signature):
+import hmac
+import hashlib
+import logging  # <--- NEW
+from typing import Dict, Any # <--- NEW
+from django.conf import settings
+
+# Setup logger
+logger = logging.getLogger(__name__)
+
+def verify_kashier_signature(data: Dict[str, Any], incoming_signature: str) -> bool:
     """
     Cryptographically verifies the webhook signature using HMAC-SHA256.
     Ensures the request actually came from Kashier and was not tampered with.
     """
-    secret_key = settings.KASHIER_API_KEY
-    # Sort keys alphabetically to match Kashier's signing logic
-    sorted_keys = sorted(data.keys())
-    params = []
-    for key in sorted_keys:
-        if key not in ['signature', 'hash', 'mode']:
-            params.append(f"{key}={data[key]}")
-    
-    query_string = "&".join(params)
-    # Note: verify if Kashier needs the leading '/' or not based on their latest doc
-    # Usually it's path + "?" + query. If path is just "/", then:
-    path = "/"
-    final_string = path + query_string.lstrip("&")
-    
-    signature = hmac.new(
-        key=secret_key.encode('utf-8'),
-        msg=final_string.encode('utf-8'),
-        digestmod=hashlib.sha256
-    ).hexdigest()
-    
-    return hmac.compare_digest(signature, incoming_signature)
+    try:
+        secret_key = settings.KASHIER_API_KEY
+        
+        # Sort keys alphabetically to match Kashier's signing logic
+        sorted_keys = sorted(data.keys())
+        params = []
+        
+        for key in sorted_keys:
+            if key not in ['signature', 'hash', 'mode']:
+                params.append(f"{key}={data[key]}")
+        
+        query_string = "&".join(params)
+        path = "/"
+        final_string = path + query_string.lstrip("&")
+        
+        signature = hmac.new(
+            key=secret_key.encode('utf-8'),
+            msg=final_string.encode('utf-8'),
+            digestmod=hashlib.sha256
+        ).hexdigest()
+        
+        is_valid = hmac.compare_digest(signature, incoming_signature)
+        
+        if not is_valid:
+            logger.warning(f"⚠️ Invalid Signature detected! IP: {data.get('remote_ip', 'unknown')}")
+            
+        return is_valid
+
+    except Exception as e:
+        logger.error(f"❌ Signature verification failed with error: {str(e)}")
+        return False
 
 def place_sickw_order(transaction_obj):
     """
