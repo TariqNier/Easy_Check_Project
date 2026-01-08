@@ -2,6 +2,7 @@ import datetime
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db import transaction as db_transaction # Renamed to avoid conflict with model
 from django.db.models import F
 
@@ -266,5 +267,22 @@ class ServiceViewSet(viewsets.ModelViewSet):
             except Exception:
                 # If sync fails, don't break the list view
                 pass
+        
+        # Cache the service list for 30 minutes for non-staff users
+        # Staff users always get fresh data
+        if not request.user.is_staff:
+            cache_key = 'service_list_active'
+            cached_response = cache.get(cache_key)
+            
+            if cached_response:
+                return Response(cached_response)
+            
+            response = super().list(request, *args, **kwargs)
+            
+            # Cache the serialized response data
+            if response.status_code == 200:
+                cache.set(cache_key, response.data, timeout=1800)
+            
+            return response
         
         return super().list(request, *args, **kwargs)

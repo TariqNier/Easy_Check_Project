@@ -1,6 +1,7 @@
 import re
 from decimal import Decimal
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -65,12 +66,20 @@ class UserTransactionSerializer(TransactionSerializer):
         
         if service_details:
             service_id = service_details.get('service_id')
-            try:
-                service = Service.objects.get(service_id=str(service_id))
-            except Service.DoesNotExist:
-                raise serializers.ValidationError({
-                    "service_details": f"Service ID '{service_id}' does not exist in our system."
-                })
+            
+            # Try to get from cache first to avoid DB query
+            cache_key = f'service_{service_id}'
+            service = cache.get(cache_key)
+            
+            if not service:
+                try:
+                    service = Service.objects.get(service_id=str(service_id))
+                    # Cache the service object for 1 hour
+                    cache.set(cache_key, service, timeout=3600)
+                except Service.DoesNotExist:
+                    raise serializers.ValidationError({
+                        "service_details": f"Service ID '{service_id}' does not exist in our system."
+                    })
  
             if user.balance < service.final_price:
                 raise serializers.ValidationError({
@@ -121,12 +130,19 @@ class GuestTransactionSerializer(TransactionSerializer):
         details = attrs.get('service_details')
         service_id = details.get('service_id')
 
-        try:
-            service = Service.objects.get(service_id=service_id)
-        except Service.DoesNotExist:
-            raise serializers.ValidationError({
-                    "service_details": f"Service ID '{service_id}' does not exist in our system."
-                })
+        # Try to get from cache first to avoid DB query
+        cache_key = f'service_{service_id}'
+        service = cache.get(cache_key)
+        
+        if not service:
+            try:
+                service = Service.objects.get(service_id=service_id)
+                # Cache the service object for 1 hour
+                cache.set(cache_key, service, timeout=3600)
+            except Service.DoesNotExist:
+                raise serializers.ValidationError({
+                        "service_details": f"Service ID '{service_id}' does not exist in our system."
+                    })
  
         attrs['amount'] = service.final_price
         return attrs
