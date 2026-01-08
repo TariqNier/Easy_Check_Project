@@ -16,6 +16,10 @@ def get_kashier_auth_headers():
     }
 
 def verify_kashier_signature(data, incoming_signature):
+    """
+    Cryptographically verifies the webhook signature using HMAC-SHA256.
+    Ensures the request actually came from Kashier and was not tampered with.
+    """
     secret_key = settings.KASHIER_API_KEY
     # Sort keys alphabetically to match Kashier's signing logic
     sorted_keys = sorted(data.keys())
