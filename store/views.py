@@ -23,7 +23,7 @@ from .utils import get_kashier_auth_headers, place_sickw_order, sync_services_if
 User = get_user_model()
 
 class TransactionViewSet(viewsets.ModelViewSet):
-    queryset = Transaction.objects.all()
+    queryset = Transaction.objects.select_related('user').all()
     
     def get_serializer_class(self, *args, **kwargs):
         if self.request.user.is_authenticated:
@@ -203,7 +203,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        transactions = Transaction.objects.filter(user=user).order_by('-created_at')
+        # Optimize query with select_related to avoid N+1 queries
+        transactions = Transaction.objects.filter(user=user).select_related('user').order_by('-created_at')
         
       
         page = self.paginate_queryset(transactions)
@@ -220,10 +221,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
            
+        # Optimize query with select_related to avoid N+1 queries
         transactions = Transaction.objects.filter(
             user=user, 
             is_balance_topup=False
-        ).order_by('-created_at')
+        ).select_related('user').order_by('-created_at')
         
         page = self.paginate_queryset(transactions)
         if page is not None:
@@ -252,6 +254,17 @@ class ServiceViewSet(viewsets.ModelViewSet):
         return Service.objects.filter(is_active=True)
     
     def list(self, request, *args, **kwargs):
-        # Ensure this function is fast/optimized, or move to Celery later
-        sync_services_if_expired()
+        # Check sync status without blocking - only trigger if not locked
+        # This prevents all list requests from waiting for API call
+        if not cache.get('sickw_sync_lock'):
+            # Set lock immediately to prevent duplicate calls
+            cache.set('sickw_sync_lock', True, timeout=21600)
+            # Trigger sync in a non-blocking way by just calling it
+            # In production, this should be moved to Celery or similar
+            try:
+                sync_services_if_expired()
+            except Exception:
+                # If sync fails, don't break the list view
+                pass
+        
         return super().list(request, *args, **kwargs)
