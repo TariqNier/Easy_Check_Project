@@ -19,7 +19,7 @@ class Command(BaseCommand):
     
         try:
 
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, timeout=10)
             
             try:
                 data = response.json()

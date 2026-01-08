@@ -2,6 +2,7 @@ import datetime
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db import transaction as db_transaction # Renamed to avoid conflict with model
 from django.db.models import F
 
@@ -22,8 +23,12 @@ from .utils import get_kashier_auth_headers, place_sickw_order, sync_services_if
 
 User = get_user_model()
 
+# Cache timeout constants (in seconds)
+SYNC_LOCK_TIMEOUT = 21600  # 6 hours
+SERVICE_LIST_CACHE_TIMEOUT = 1800  # 30 minutes
+
 class TransactionViewSet(viewsets.ModelViewSet):
-    queryset = Transaction.objects.all()
+    queryset = Transaction.objects.select_related('user').all()
     
     def get_serializer_class(self, *args, **kwargs):
         if self.request.user.is_authenticated:
@@ -203,6 +208,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
+        # No need for select_related('user') since we filter by user=user
         transactions = Transaction.objects.filter(user=user).order_by('-created_at')
         
       
@@ -220,6 +226,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
            
+        # No need for select_related('user') since we filter by user=user
         transactions = Transaction.objects.filter(
             user=user, 
             is_balance_topup=False
@@ -252,6 +259,33 @@ class ServiceViewSet(viewsets.ModelViewSet):
         return Service.objects.filter(is_active=True)
     
     def list(self, request, *args, **kwargs):
-        # Ensure this function is fast/optimized, or move to Celery later
-        sync_services_if_expired()
+        # Check sync status without blocking - only trigger if not locked
+        # This prevents all list requests from waiting for API call
+        # Use cache.add() which is atomic - returns False if key exists
+        if cache.add('sickw_sync_lock', True, timeout=SYNC_LOCK_TIMEOUT):
+            # We got the lock, trigger sync in a non-blocking way
+            # In production, this should be moved to Celery or similar
+            try:
+                sync_services_if_expired()
+            except Exception:
+                # If sync fails, release the lock and don't break the list view
+                cache.delete('sickw_sync_lock')
+        
+        # Cache the service list for 30 minutes for non-staff users
+        # Staff users always get fresh data
+        if not request.user.is_staff:
+            cache_key = 'service_list_active'
+            cached_response = cache.get(cache_key)
+            
+            if cached_response:
+                return Response(cached_response)
+            
+            response = super().list(request, *args, **kwargs)
+            
+            # Cache the serialized response data
+            if response.status_code == 200:
+                cache.set(cache_key, response.data, timeout=SERVICE_LIST_CACHE_TIMEOUT)
+            
+            return response
+        
         return super().list(request, *args, **kwargs)

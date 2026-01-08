@@ -127,10 +127,10 @@ def place_sickw_order(transaction_obj):
         return False
 
 def sync_services_if_expired():
-    # Cache lock prevents spamming the API on every page load
-    if cache.get('sickw_sync_lock'):
-        return 
-    
+    """
+    Sync services from Sickw API. This function should be called with 
+    cache lock already set to prevent concurrent executions.
+    """
     print("⏳ Syncing Services from Sickw...")
     api_key = getattr(settings, 'SICKW_API_KEY', None)
     url = "https://sickw.com/api.php"
@@ -138,29 +138,53 @@ def sync_services_if_expired():
 
     try:
         response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
         data = response.json()
         service_list = data.get("Service List", [])
 
         if not service_list:
             return 
 
-        for item in service_list:
-            Service.objects.update_or_create(
-                service_id=str(item['service']),
-                defaults={
-                    'name': item['name'],
-                    # Consider adding a margin here if you want to automate pricing
-                    # e.g. 'price': Decimal(item['price']) * Decimal(1.1) 
-                    'provider_price': item['price'],
-                }
-            )
+        # Get all existing services in one query
+        existing_services = {s.service_id: s for s in Service.objects.all()}
+        
+        services_to_create = []
+        services_to_update = []
 
-        # Set lock for 6 hours (21600 seconds)
-        cache.set('sickw_sync_lock', True, timeout=21600) 
+        for item in service_list:
+            service_id = str(item['service'])
+            service_data = {
+                'name': item['name'],
+                'provider_price': item['price'],
+            }
+            
+            if service_id in existing_services:
+                # Prepare for bulk update
+                service = existing_services[service_id]
+                service.name = service_data['name']
+                service.provider_price = service_data['provider_price']
+                services_to_update.append(service)
+            else:
+                # Prepare for bulk create
+                services_to_create.append(Service(
+                    service_id=service_id,
+                    **service_data
+                ))
+        
+        # Bulk update existing services
+        if services_to_update:
+            Service.objects.bulk_update(services_to_update, ['name', 'provider_price'])
+        
+        # Bulk create new services
+        if services_to_create:
+            Service.objects.bulk_create(services_to_create, ignore_conflicts=True)
+
         print("✅ Sync Complete.")
 
     except Exception as e:
         print(f"⚠️ Sync Failed: {e}")    
+        # Release the lock on failure so it can be retried sooner
+        cache.delete('sickw_sync_lock')    
 
 def is_valid_luhn(imei):
     if not imei.isdigit():
