@@ -204,8 +204,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Optimize query with select_related to avoid N+1 queries
-        transactions = Transaction.objects.filter(user=user).select_related('user').order_by('-created_at')
+        # No need for select_related('user') since we filter by user=user
+        transactions = Transaction.objects.filter(user=user).order_by('-created_at')
         
       
         page = self.paginate_queryset(transactions)
@@ -222,11 +222,11 @@ class TransactionViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
            
-        # Optimize query with select_related to avoid N+1 queries
+        # No need for select_related('user') since we filter by user=user
         transactions = Transaction.objects.filter(
             user=user, 
             is_balance_topup=False
-        ).select_related('user').order_by('-created_at')
+        ).order_by('-created_at')
         
         page = self.paginate_queryset(transactions)
         if page is not None:
@@ -257,16 +257,15 @@ class ServiceViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         # Check sync status without blocking - only trigger if not locked
         # This prevents all list requests from waiting for API call
-        if not cache.get('sickw_sync_lock'):
-            # Set lock immediately to prevent duplicate calls
-            cache.set('sickw_sync_lock', True, timeout=21600)
-            # Trigger sync in a non-blocking way by just calling it
+        # Use cache.add() which is atomic - returns False if key exists
+        if cache.add('sickw_sync_lock', True, timeout=21600):
+            # We got the lock, trigger sync in a non-blocking way
             # In production, this should be moved to Celery or similar
             try:
                 sync_services_if_expired()
             except Exception:
-                # If sync fails, don't break the list view
-                pass
+                # If sync fails, release the lock and don't break the list view
+                cache.delete('sickw_sync_lock')
         
         # Cache the service list for 30 minutes for non-staff users
         # Staff users always get fresh data

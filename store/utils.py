@@ -145,10 +145,11 @@ def sync_services_if_expired():
         if not service_list:
             return 
 
-        # Bulk update/create for better performance
-        services_to_update = []
+        # Get all existing services in one query
+        existing_services = {s.service_id: s for s in Service.objects.all()}
+        
         services_to_create = []
-        existing_service_ids = set(Service.objects.values_list('service_id', flat=True))
+        services_to_update = []
 
         for item in service_list:
             service_id = str(item['service'])
@@ -157,15 +158,22 @@ def sync_services_if_expired():
                 'provider_price': item['price'],
             }
             
-            if service_id in existing_service_ids:
-                # Update existing
-                Service.objects.filter(service_id=service_id).update(**service_data)
+            if service_id in existing_services:
+                # Prepare for bulk update
+                service = existing_services[service_id]
+                service.name = service_data['name']
+                service.provider_price = service_data['provider_price']
+                services_to_update.append(service)
             else:
                 # Prepare for bulk create
                 services_to_create.append(Service(
                     service_id=service_id,
                     **service_data
                 ))
+        
+        # Bulk update existing services
+        if services_to_update:
+            Service.objects.bulk_update(services_to_update, ['name', 'provider_price'])
         
         # Bulk create new services
         if services_to_create:
