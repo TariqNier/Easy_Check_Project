@@ -23,6 +23,10 @@ from .utils import get_kashier_auth_headers, place_sickw_order, sync_services_if
 
 User = get_user_model()
 
+# Cache timeout constants (in seconds)
+SYNC_LOCK_TIMEOUT = 21600  # 6 hours
+SERVICE_LIST_CACHE_TIMEOUT = 1800  # 30 minutes
+
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.select_related('user').all()
     
@@ -258,7 +262,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
         # Check sync status without blocking - only trigger if not locked
         # This prevents all list requests from waiting for API call
         # Use cache.add() which is atomic - returns False if key exists
-        if cache.add('sickw_sync_lock', True, timeout=21600):
+        if cache.add('sickw_sync_lock', True, timeout=SYNC_LOCK_TIMEOUT):
             # We got the lock, trigger sync in a non-blocking way
             # In production, this should be moved to Celery or similar
             try:
@@ -280,7 +284,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
             
             # Cache the serialized response data
             if response.status_code == 200:
-                cache.set(cache_key, response.data, timeout=1800)
+                cache.set(cache_key, response.data, timeout=SERVICE_LIST_CACHE_TIMEOUT)
             
             return response
         

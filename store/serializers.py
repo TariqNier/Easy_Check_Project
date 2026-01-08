@@ -10,6 +10,9 @@ from .utils import is_valid_luhn
 
 User = get_user_model()
 
+# Cache timeout constants (in seconds)
+SERVICE_CACHE_TIMEOUT = 3600  # 1 hour
+
 class ServiceDetailsValidationMixin:
     def validate_service_details(self, value):
         if not isinstance(value, dict):
@@ -75,7 +78,7 @@ class UserTransactionSerializer(TransactionSerializer):
                 try:
                     service = Service.objects.get(service_id=str(service_id))
                     # Cache the service object for 1 hour
-                    cache.set(cache_key, service, timeout=3600)
+                    cache.set(cache_key, service, timeout=SERVICE_CACHE_TIMEOUT)
                 except Service.DoesNotExist:
                     raise serializers.ValidationError({
                         "service_details": f"Service ID '{service_id}' does not exist in our system."
@@ -138,7 +141,7 @@ class GuestTransactionSerializer(TransactionSerializer):
             try:
                 service = Service.objects.get(service_id=service_id)
                 # Cache the service object for 1 hour
-                cache.set(cache_key, service, timeout=3600)
+                cache.set(cache_key, service, timeout=SERVICE_CACHE_TIMEOUT)
             except Service.DoesNotExist:
                 raise serializers.ValidationError({
                         "service_details": f"Service ID '{service_id}' does not exist in our system."
