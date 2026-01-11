@@ -58,11 +58,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         # [Optimization] Don't hardcode localhost. Use dynamic base URL or settings.
         base_url = getattr(settings, 'BASE_URL', f"{request.scheme}://{request.get_host()}")
-        
+        frontend_url = "http://158.220.126.228:3000"
         if user:
-             redirect_url = f"{base_url}/store/transactions/"
+             # Send registered users back to their Wallet page
+             redirect_url = f"{frontend_url}/"
         else:
-             redirect_url = f"{base_url}/store/transactions/show-order/?merchant_transaction_id={txn.merchant_transaction_id}"
+             # Send guests back to the home page
+             redirect_url = f"{frontend_url}/"
 
         # [Optimization] Use settings for the webhook URL to avoid ngrok issues in production
         webhook_url = getattr(settings, 'KASHIER_WEBHOOK_URL', f"{base_url}/store/transactions/webhook/kashier/")
