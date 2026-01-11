@@ -33,7 +33,7 @@ DEBUG = True
 
 BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
 
-ALLOWED_HOSTS = ['158.220.126.228', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = [*]
 
 AUTH_USER_MODEL = 'authentication.User'
 
