@@ -162,9 +162,9 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:5173",
     "http://127.0.0.1:3000",
-    "http://158.220.126.228",  # <--- Add this line
+    "http://158.220.126.228",       # Allow requests from the raw IP (browsers sometimes do this)
+    "http://158.220.126.228:3000",  # <--- CRITICAL: Allow requests from the Frontend Port
 ]
 CORS_CREDENTIALS_ALLOWED = True
 
