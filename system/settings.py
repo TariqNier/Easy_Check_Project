@@ -33,7 +33,7 @@ DEBUG = True
 
 BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['158.220.126.228', 'localhost', '127.0.0.1']
 
 AUTH_USER_MODEL = 'authentication.User'
 
@@ -164,9 +164,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://127.0.0.1:3000",
+    "http://158.220.126.228",  # <--- Add this line
 ]
-
-
 CORS_CREDENTIALS_ALLOWED = True
 
 
