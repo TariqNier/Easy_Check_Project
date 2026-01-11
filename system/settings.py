@@ -166,7 +166,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://158.220.126.228",       # Allow requests from the raw IP (browsers sometimes do this)
     "http://158.220.126.228:3000",  # <--- CRITICAL: Allow requests from the Frontend Port
 ]
-CORS_CREDENTIALS_ALLOWED = True
+CORS_ALLOW_CREDENTIALS = True
 
 
 # 1. Credentials
