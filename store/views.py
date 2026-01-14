@@ -277,7 +277,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
     
-    pagination_class = None
+    #pagination_class = None
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
