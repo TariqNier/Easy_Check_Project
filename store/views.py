@@ -235,8 +235,49 @@ class TransactionViewSet(viewsets.ModelViewSet):
         serializer = ServiceHistorySerializer(transactions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    @action(detail=False, methods=['get'], url_path='test-sickw-demo', permission_classes=[permissions.IsAdminUser])
+    def test_sickw_demo(self, request):
+        """
+        Runs a live test against Sickw and returns a filtered response 
+        (result, imei, id, status).
+        """
+        url = "https://sickw.com/api.php"
+        api_key = getattr(settings, 'SICKW_API_KEY', None)
+        
+        params = {
+            'format': 'json',
+            'key': api_key,
+            'imei': '354442067957452',
+            'service': 'demo'
+        }
+        
+        try:
+            response = requests.get(url, params=params, timeout=30)
+            
+            if response.status_code == 200:
+                raw_data = response.json()
+                
+                # 🔍 FILTER: Only select the specific fields you want
+                filtered_response = {
+                    "result": raw_data.get("result"),
+                    "imei": raw_data.get("imei"),
+                    "id": raw_data.get("id"),
+                    "status": raw_data.get("status")
+                }
+                
+                return Response(filtered_response, status=status.HTTP_200_OK)
+            
+            else:
+                return Response({"error": "External API Error", "raw": response.text}, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
+    
+    pagination_class = None
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:

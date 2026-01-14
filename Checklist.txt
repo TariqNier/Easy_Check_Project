@@ -1,17 +1,5 @@
 El fadel:
 
+-make test endpoint(in progress)
 
--Service Search history
--Payment history for user (add balance top up history wala la2?)
--IMEI Sickw Implementation with Custom Pricing (20% 30%)
--Docker
-
-
-update (29/12/2025):
-- i finished the custom pricing thing + modified admin panel to allow custom pricing
-
-whats left:
-
--Service history
--Payment history for user (add balance top up history wala la2?)
--Docker
+-(unpage services)
