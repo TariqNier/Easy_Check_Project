@@ -38,7 +38,11 @@ class ServiceDetailsValidationMixin:
                 raise serializers.ValidationError(
                     "Serial Number must contain only letters and numbers (No spaces or dashes)."
                 )
-      
+                
+            if len(serial_str) < 11: 
+                raise serializers.ValidationError(
+                    "This service requires a legacy Serial Number (11-12 characters). 10-character (Randomized) serials are not supported."
+                )
         return value
 
 class TransactionSerializer(serializers.ModelSerializer, ServiceDetailsValidationMixin):
