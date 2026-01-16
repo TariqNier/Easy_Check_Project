@@ -66,8 +66,8 @@ def place_sickw_order(transaction_obj):
     }
     if imei:
         params['imei'] = imei
-    if serial:
-        params['serial'] = serial
+    elif serial:
+        params['imei'] = serial
 
     try:
         response = requests.get(url, params=params, timeout=30)
