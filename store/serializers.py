@@ -135,7 +135,7 @@ class GuestTransactionSerializer(TransactionSerializer):
         return Transaction.objects.create(**validated_data)
 
 class UserServiceSerializer(serializers.ModelSerializer):
-    final_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    final_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True,coerce_to_string=False)
     
     class Meta:
         model = Service
