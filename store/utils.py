@@ -1,3 +1,5 @@
+import json
+import os
 import requests
 import hmac
 import hashlib
@@ -134,12 +136,38 @@ def place_sickw_order(transaction_obj):
         # We leave it as COMPLETED but log the error so Admin checks it manually.
         return False
 
+
+def load_descriptions_from_file():
+    """
+    Helper function to read the descriptions.json file
+    located in the same folder as this script (store/descriptions.json).
+    """
+    try:
+        # Get path to store/descriptions.json
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        json_path = os.path.join(base_dir, 'descriptions.json')
+        
+        if not os.path.exists(json_path):
+            print(f"⚠️ Descriptions file missing at: {json_path}")
+            return {}
+
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+            
+    except Exception as e:
+        print(f"❌ Error reading descriptions.json: {e}")
+        return {}
+
+
 def sync_services_if_expired():
     # Cache lock prevents spamming the API on every page load
     if cache.get('sickw_sync_lock'):
         return 
-    
     print("⏳ Syncing Services from Sickw...")
+    
+    # 1. Load your custom descriptions first
+    custom_descriptions = load_descriptions_from_file()
+    
     api_key = getattr(settings, 'SICKW_API_KEY', None)
     url = "https://sickw.com/api.php"
     params = {'key': api_key, 'action': 'services'}
@@ -153,31 +181,50 @@ def sync_services_if_expired():
             return 
 
         for item in service_list:
-            # 1. Try to find the service by ID
+            svc_id = str(item['service'])
+            sickw_name = item['name']
+            sickw_price = item['price']
+            
+            # Lookup description in your loaded JSON (default to empty string if missing)
+            custom_desc = custom_descriptions.get(svc_id, "")
+
+            # 2. Try to find the service by ID or Create it
             service_obj, created = Service.objects.get_or_create(
-                service_id=str(item['service']),
+                service_id=svc_id,
                 defaults={
                     # This runs ONLY if a new service is created
-                    'name': item['name'],
-                    'provider_price': item['price'],
-                    'description': '', # Optional default
+                    'name': sickw_name,
+                    'provider_price': sickw_price,
+                    'description': custom_desc, # Use description from file
                     'is_active': True
                 }
             )
 
-            # 2. If it ALREADY existed, we only update the price (Privacy Mode)
+            # 3. If it ALREADY existed, handle updates
             if not created:
-                # We do NOT touch .name or .description here
-                if service_obj.provider_price != item['price']:
-                    service_obj.provider_price = item['price']
-                    service_obj.save(update_fields=['provider_price'])
+                needs_save = False
+                
+                # A. Update Price (Always keep this fresh)
+                if str(service_obj.provider_price) != str(sickw_price):
+                    service_obj.provider_price = sickw_price
+                    needs_save = True
+                
+                # B. Force Update Description 
+                # If your JSON file has a description, we enforce it in the DB.
+                # This ensures the website always matches your file.
+                if custom_desc and service_obj.description != custom_desc:
+                    service_obj.description = custom_desc
+                    needs_save = True
+                
+                if needs_save:
+                    service_obj.save(update_fields=['provider_price', 'description'])
 
         # Set lock for 6 hours (21600 seconds)
         cache.set('sickw_sync_lock', True, timeout=21600) 
         print("✅ Sync Complete.")
 
     except Exception as e:
-        print(f"⚠️ Sync Failed: {e}")    
+        print(f"⚠️ Sync Failed: {e}")
 
 def is_valid_luhn(imei):
     if not imei.isdigit():
