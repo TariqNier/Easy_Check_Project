@@ -115,7 +115,7 @@ class GuestTransactionSerializer(TransactionSerializer):
     service_details = serializers.JSONField(required=True) 
     
     class Meta(TransactionSerializer.Meta):
-        fields = TransactionSerializer.Meta.fields + ['service_details']
+        fields = TransactionSerializer.Meta.fields + ['service_details','amount',  'created_at', 'is_balance_topup', 'service_details', 'id']
     
     def validate(self, attrs):
         details = attrs.get('service_details')
