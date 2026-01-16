@@ -167,9 +167,21 @@ class WalletHistorySerializer(serializers.ModelSerializer):
  
         sign = "+" if obj.is_balance_topup else "-"
         return f"{sign}{obj.amount}"
+    
+# 1. Standard Serializer for the Homepage List
+class ServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Service
+        fields = [
+            'service_id', 
+            'name', 
+            'description', 
+            'provider_price', 
+            'is_active'
+        ]
 
+# 2. History Serializer for User Profile (Your Code)
 class ServiceHistorySerializer(serializers.ModelSerializer):
-
     service_name = serializers.SerializerMethodField()
     item_identifier = serializers.SerializerMethodField() # IMEI or Serial
     result_text = serializers.SerializerMethodField()
@@ -188,27 +200,30 @@ class ServiceHistorySerializer(serializers.ModelSerializer):
 
     def get_service_name(self, obj):
         details = obj.service_details or {}
-
+        # Returns the name saved at the time of order, or ID if missing
         return details.get('service_name') or f"Service #{details.get('service_id')}"
 
     def get_item_identifier(self, obj):
         details = obj.service_details or {}
+        # Smartly finds IMEI, Serial, or returns N/A
         return details.get('imei') or details.get('serial') or "N/A"
 
     def get_result_text(self, obj):
-    
         details = obj.service_details or {}
         api_result = details.get('api_result')
         
         if not api_result:
             return None
             
+        # Handle formatting if Sickw returns a list (rare but possible)
         if isinstance(api_result, list):
             return ", ".join(map(str, api_result))
 
+        # Handle standard string results (HTML or Text)
         if isinstance(api_result, str):
             return api_result
             
+        # Handle Dict results (like errors or complex objects)
         if isinstance(api_result, dict):
             return api_result.get('result') or api_result.get('status')
     
