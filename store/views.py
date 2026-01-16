@@ -277,17 +277,14 @@ class TransactionViewSet(viewsets.ModelViewSet):
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
     
+    serializer_class= UserServiceSerializer
+    
     pagination_class = None
     
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()] 
         return [permissions.IsAdminUser()]   
-
-    def get_serializer_class(self):
-        if self.request.user.is_staff:
-            return AdminServiceSerializer
-        return UserServiceSerializer
 
     def get_queryset(self):
         if self.request.user.is_staff:

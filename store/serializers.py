@@ -135,14 +135,11 @@ class GuestTransactionSerializer(TransactionSerializer):
         return Transaction.objects.create(**validated_data)
 
 class UserServiceSerializer(serializers.ModelSerializer):
+    final_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    
     class Meta:
         model = Service
         fields = ['id', 'service_id', 'name', 'final_price', 'description', 'is_active']
-        
-class AdminServiceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Service
-        fields = '__all__'
         
 class WalletHistorySerializer(serializers.ModelSerializer):
     transaction_type = serializers.SerializerMethodField()
