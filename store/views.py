@@ -45,12 +45,16 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         # --- PATH A: REGISTERED USER (Wallet Balance) ---
         if txn.status == 'COMPLETED':
+            
+            
             place_sickw_order(txn)
+            user.refresh_from_db()
+            
             return Response({
                 "transaction_id": txn.id,
                 "transaction_status": txn.status,
-                "new_balance": user.balance, 
-                "api_result": txn.service_details.get('api_result') 
+                "api_result": txn.service_details.get('api_result'),
+                "new_balance": float(user.balance),
             }, status=status.HTTP_201_CREATED)
             
         # --- PATH B: GUEST / TOPUP (Kashier Payment) ---
