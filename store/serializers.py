@@ -137,7 +137,7 @@ class GuestTransactionSerializer(TransactionSerializer):
 class UserServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
-        fields = ['name', 'service_id', 'final_price', 'description']
+        fields = ['id', 'service_id', 'name', 'final_price', 'description', 'is_active']
         
 class AdminServiceSerializer(serializers.ModelSerializer):
     class Meta:
