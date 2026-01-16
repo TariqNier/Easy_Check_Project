@@ -87,9 +87,17 @@ def place_sickw_order(transaction_obj):
 
         # Check for known errors
         error_keywords = [
-            "IMEI is Wrong", "Invalid IMEI", "Not Found", "Error E01", 
-            "Rejected", "Not supported", "Insufficient Funds", 
-            "Service is Down", "Service ID is Wrong"
+           "IMEI is Wrong", 
+            "IMEI or SN is Wrong", # <--- Added this
+            "Error E02",           # <--- Added this
+            "Invalid",             # <--- Catch "Invalid IMEI", "Invalid SN"
+            "Not Found", 
+            "Error E01", 
+            "Rejected", 
+            "Not supported", 
+            "Insufficient Funds", 
+            "Service is Down", 
+            "Service ID is Wrong"
         ]
 
         is_error = any(keyword.lower() in response_text.lower() for keyword in error_keywords)
