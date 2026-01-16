@@ -153,15 +153,24 @@ def sync_services_if_expired():
             return 
 
         for item in service_list:
-            Service.objects.update_or_create(
+            # 1. Try to find the service by ID
+            service_obj, created = Service.objects.get_or_create(
                 service_id=str(item['service']),
                 defaults={
+                    # This runs ONLY if a new service is created
                     'name': item['name'],
-                    # Consider adding a margin here if you want to automate pricing
-                    # e.g. 'price': Decimal(item['price']) * Decimal(1.1) 
                     'provider_price': item['price'],
+                    'description': '', # Optional default
+                    'is_active': True
                 }
             )
+
+            # 2. If it ALREADY existed, we only update the price (Privacy Mode)
+            if not created:
+                # We do NOT touch .name or .description here
+                if service_obj.provider_price != item['price']:
+                    service_obj.provider_price = item['price']
+                    service_obj.save(update_fields=['provider_price'])
 
         # Set lock for 6 hours (21600 seconds)
         cache.set('sickw_sync_lock', True, timeout=21600) 
