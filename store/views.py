@@ -49,6 +49,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             
             place_sickw_order(txn)
             user.refresh_from_db()
+            txn.refresh_from_db()
             
             return Response({
                 "transaction_id": txn.id,
