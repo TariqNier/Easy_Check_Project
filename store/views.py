@@ -14,7 +14,6 @@ from .serializers import (
     UserTransactionSerializer, 
     GuestTransactionSerializer,
     UserServiceSerializer,
-    AdminServiceSerializer,
     WalletHistorySerializer,
     ServiceHistorySerializer
 )
