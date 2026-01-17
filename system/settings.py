@@ -186,3 +186,25 @@ if KASHIER_TEST_MODE:
     KASHIER_API_URL = "https://test-api.kashier.io" 
 else:
     KASHIER_API_URL = "https://api.kashier.io"
+
+
+# ==========================================
+# EMAIL CONFIGURATION (SMTP)
+# ==========================================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# Host: smtp.gmail.com (for Gmail) or smtp.live.com (for Outlook)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+
+# Port: 587 (TLS) is standard
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
+
+# Your Email Credentials
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+
+# The email address that appears in the "From" field
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)

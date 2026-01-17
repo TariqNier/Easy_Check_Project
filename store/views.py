@@ -46,8 +46,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
         # --- PATH A: REGISTERED USER (Wallet Balance) ---
         if txn.status == 'COMPLETED':
             
-            
             place_sickw_order(txn)
+            
+            # [REMOVED: Email logic for registered users deleted as requested]
+            
             user.refresh_from_db()
             txn.refresh_from_db()
             
@@ -63,6 +65,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         # [Optimization] Don't hardcode localhost. Use dynamic base URL or settings.
         base_url = getattr(settings, 'BASE_URL', f"{request.scheme}://{request.get_host()}")
         frontend_url = "http://158.220.126.228:3000"
+        
         if user:
              # Send registered users back to their Wallet page
              redirect_url = f"{frontend_url}/"
@@ -72,6 +75,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
         # [Optimization] Use settings for the webhook URL to avoid ngrok issues in production
         webhook_url = getattr(settings, 'KASHIER_WEBHOOK_URL', f"{base_url}/store/transactions/webhook/kashier/")
+
+        # Extract Email safely
+        guest_email = txn.guest_email if txn.guest_email else ""
 
         payload = {
             "expireAt": (datetime.datetime.now() + datetime.timedelta(minutes=30)).isoformat() + "Z",
@@ -88,7 +94,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             "allowedMethods": "card,wallet,fawry,instapay,basata",
             "customer": {
                 "name": str(user.phone_number) if user else "Guest",
-                "email": "", # Optional: Add email if you have it
+                "email": None if user else guest_email, # 👇 Sends Guest Email to Kashier (Safe to keep)
                 "reference": str(user.id) if user else "guest"
             }
         }
@@ -128,7 +134,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             txn.status = 'FAILED'
             txn.save(update_fields=['status'])
             return Response({"error": f"Payment Gateway Error: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-          
+        
     @action(detail=False, methods=['post'], url_path='webhook/kashier')
     def kashier_webhook(self, request):
         webhook_data = request.data.get('data', {})
@@ -181,6 +187,16 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 # 2. ORDER SERVICE (Direct Pay)
                 elif txn.service_details and event_type != 'refund':
                     place_sickw_order(txn)
+                    
+                    # 👇 Email logic only runs if guest_email exists (So Users are ignored)
+                    if txn.guest_email:
+                        from .utils import send_guest_confirmation_email
+                        service_name = txn.service_details.get('service_name', 'Unknown Service')
+                        send_guest_confirmation_email(
+                            txn.guest_email, 
+                            txn.merchant_transaction_id, 
+                            service_name
+                        )
                     
             else:
                 txn.status = 'FAILED'

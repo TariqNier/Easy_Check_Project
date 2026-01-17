@@ -9,6 +9,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import F
 from .models import Service
+from django.core.mail import send_mail
 
 def get_kashier_auth_headers():
     return {
@@ -247,3 +248,41 @@ def is_valid_luhn(imei):
             checksum += digit
             
     return checksum % 10 == 0
+
+
+def send_guest_confirmation_email(email, order_id, service_name):
+    """Sent immediately after payment."""
+    subject = f"Order Received: #{order_id}"
+    message = f"""
+    Hello!
+    
+    We have received your payment for: {service_name}.
+    Your order is currently processing.
+    
+    We will email you the result immediately once it is ready.
+    
+    Order ID: {order_id}
+    """
+    try:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+    except Exception as e:
+        print(f"Failed to send confirmation email: {e}")
+
+def send_guest_result_email(email, order_id, service_name, result_text):
+    """Sent by the Cron Job when Sickw finishes."""
+    subject = f"Result Ready: Order #{order_id}"
+    message = f"""
+    Hello!
+    
+    Your order for {service_name} is complete.
+    
+    --- RESULT ---
+    {result_text}
+    --------------
+    
+    Thank you for using our service.
+    """
+    try:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+    except Exception as e:
+        print(f"Failed to send result email: {e}")
