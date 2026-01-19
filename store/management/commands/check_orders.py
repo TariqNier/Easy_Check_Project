@@ -11,6 +11,7 @@ class Command(BaseCommand):
         self.stdout.write("🕒 Starting Order Check...")
 
         # 1. Find all COMPLETED transactions (Payment is done)
+        # Also includes RETRY orders (network failures that need retry)
         candidates = Transaction.objects.filter(
             status='COMPLETED', 
             sickw_order_id__isnull=False
@@ -39,7 +40,46 @@ class Command(BaseCommand):
             self.stdout.write(f"👉 Checking ID: {sickw_id} (Trx #{txn.id})")
 
             # ---------------------------------------------------------
-            # 🛑 TRAP DOOR: 1-MINUTE TIMER LOGIC (Mock Service)
+            # � RETRY HANDLER: Network Timeout Recovery
+            # ---------------------------------------------------------
+            if sickw_id.startswith("RETRY-"):
+                self.stdout.write(f"🔄 Retrying failed API call for Trx #{txn.id}...")
+                
+                # Import the order function to retry
+                from store.utils import place_sickw_order
+                
+                # Retry the Sickw API call
+                success = place_sickw_order(txn)
+                
+                if success:
+                    self.stdout.write(f"   ✅ Retry successful!")
+                    txn.refresh_from_db()
+                    
+                    # Check if instant result, send email if guest
+                    if txn.guest_email:
+                        api_result = txn.service_details.get('api_result', {})
+                        result_text = api_result.get('result', '') if isinstance(api_result, dict) else str(api_result)
+                        
+                        if result_text and "Pending" not in str(result_text):
+                            from store.models import Service
+                            service_id = txn.service_details.get('service_id')
+                            service_obj = Service.objects.filter(service_id=service_id).first()
+                            service_name = service_obj.name if service_obj else 'Service'
+                            
+                            send_guest_result_email(
+                                txn.guest_email,
+                                txn.merchant_transaction_id,
+                                service_name,
+                                result_text
+                            )
+                else:
+                    self.stdout.write(f"   ❌ Retry still failing. Will try again next run.")
+                
+                continue
+            # ---------------------------------------------------------
+            
+            # ---------------------------------------------------------
+            # �🛑 TRAP DOOR: 1-MINUTE TIMER LOGIC (Mock Service)
             # ---------------------------------------------------------
             if sickw_id.startswith("MOCK-WAITING-"):
                 

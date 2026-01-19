@@ -189,9 +189,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
                     # B. Reload to get the updates (Service Name, Result, etc.)
                     txn.refresh_from_db() 
                     
-                    # C. Get Service Name (Safely)
+                    # C. Get Service Name (Fetch from Database)
                     from .models import Service
-                    service_name = txn.service_details.get('service_name', 'Service')
+                    service_id = txn.service_details.get('service_id')
+                    service_obj = Service.objects.filter(service_id=service_id).first()
+                    
+                    if service_obj:
+                        service_name = service_obj.name
+                    else:
+                        service_name = txn.service_details.get('service_name', 'Service')
 
                     # 👇 D. SEND EMAILS (This was missing!)
                     if txn.guest_email:
