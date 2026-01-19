@@ -123,17 +123,23 @@ def place_sickw_order(transaction_obj):
 
         # Check for known errors
         error_keywords = [
-           "IMEI is Wrong", 
-            "IMEI or SN is Wrong",
+            "IMEI Number failed Luhn checksum",
+            "Error E01",
+            "right format or length",
             "Error E02",
-            "Invalid",
-            "Not Found", 
-            "Error E01", 
-            "Rejected", 
-            "Not supported", 
-            "Insufficient Funds", 
-            "Service is Down", 
-            "Service ID is Wrong"
+            "Service Offline",
+            "Error R01",
+            "Insufficient funds",
+            "Error B01",
+            "Service not exist",
+            "Error S01",
+            "Error S02",
+            "APi KEY incorrect",
+            "Error A01",
+            "Error A02",
+            "Error A03",
+            "Invalid",      # General fallback
+            "Rejected"      # General fallback
         ]
 
         is_error = any(keyword.lower() in response_text.lower() for keyword in error_keywords)
