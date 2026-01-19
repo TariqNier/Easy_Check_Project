@@ -24,6 +24,12 @@ def refund_via_kashier(transaction_obj):
     Refunds a Kashier payment using Kashier Refund API.
     Returns True if successful, False otherwise.
     """
+    # Debug: Print all Kashier-related IDs
+    print(f"🔍 DEBUG - Transaction #{transaction_obj.id}:")
+    print(f"   kashier_session_id: {transaction_obj.kashier_session_id}")
+    print(f"   kashier_transaction_id: {transaction_obj.kashier_transaction_id}")
+    print(f"   merchant_transaction_id: {transaction_obj.merchant_transaction_id}")
+    
     if not transaction_obj.kashier_session_id:
         print("❌ No Kashier Order ID found for refund")
         return False
@@ -32,6 +38,8 @@ def refund_via_kashier(transaction_obj):
     base_url = "https://test-fep.kashier.io" if settings.KASHIER_TEST_MODE else "https://fep.kashier.io"
     url = f"{base_url}/v3/orders/{transaction_obj.kashier_session_id}"
     
+    print(f"🌐 Refund API URL: {url}")
+    
     payload = {
         "apiOperation": "REFUND",
         "reason": "Service Provider Error - Order could not be fulfilled",
@@ -39,6 +47,8 @@ def refund_via_kashier(transaction_obj):
             "amount": float(transaction_obj.amount)
         }
     }
+    
+    print(f"📤 Refund Payload: {payload}")
     
     headers = {
         "Authorization": settings.KASHIER_SECRET_KEY,
