@@ -176,49 +176,43 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 
                 # 1. BALANCE TOP-UP
                 if txn.is_balance_topup and txn.user:
-                    # [Safety] Use F() expressions for atomic addition.
-                    # This prevents race conditions if two webhooks fire at once.
                     txn.user.balance = F('balance') + txn.amount
                     txn.user.save(update_fields=['balance'])
-                    txn.user.refresh_from_db() # Reload to get clean number (optional)
+                    txn.user.refresh_from_db() 
 
                 # 2. ORDER SERVICE (Direct Pay)
                 elif txn.service_details and event_type != 'refund':
-                    # 1. Place the order
-                    x=place_sickw_order(txn)
                     
-                    if x == "SKIPPED":
-                        print("⚠️ Skipping real Sickw order for Test Service.")
-                        
-                    return Response({"status": "SKIPPED"}, status=status.HTTP_200_OK)
+                    # A. Place the order (Real or Test)
+                    place_sickw_order(txn)
                     
-                    # 2. Reload to get the result Sickw just put in the DB
+                    # B. Reload to get the updates (Service Name, Result, etc.)
                     txn.refresh_from_db() 
                     
-                    # 👇 3. HANDLE EMAILS (Both Confirmation & Instant Result)
+                    # C. Get Service Name (Safely)
+                    from .models import Service
+                    service_name = txn.service_details.get('service_name', 'Service')
+
+                    # 👇 D. SEND EMAILS (This was missing!)
                     if txn.guest_email:
                         from .utils import send_guest_confirmation_email, send_guest_result_email
                         
-                        service_name = txn.service_details.get('service_name', 'Unknown Service')
-                        
-                        # A. Always send Confirmation
+                        # 1. Always send Confirmation Email
                         send_guest_confirmation_email(
                             txn.guest_email, 
                             txn.merchant_transaction_id, 
                             service_name
                         )
 
-                        # B. CHECK FOR INSTANT RESULT
-                        # Get the result text we just saved
+                        # 2. Check for INSTANT Result
+                        # (If it's the 1-minute test, the result will be "Pending", so this part gets skipped)
                         api_result = txn.service_details.get('api_result', {})
-                        
-                        # If it's a dictionary, get the 'result' key, otherwise cast to string
                         if isinstance(api_result, dict):
                             result_text = api_result.get('result', '')
                         else:
                             result_text = str(api_result)
 
-                        # If it is NOT Pending (meaning it is Instant Success), send the 2nd email NOW.
+                        # If success (and NOT Pending), send 2nd email immediately
                         if result_text and "Pending" not in str(result_text) and "Process" not in str(result_text):
                             send_guest_result_email(
                                 txn.guest_email,
