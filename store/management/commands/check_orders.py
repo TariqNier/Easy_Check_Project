@@ -1,11 +1,12 @@
 from django.core.management.base import BaseCommand
-from store.models import Transaction
+from store.models import Transaction,Service
 from store.utils import send_guest_result_email
 from django.conf import settings
 import requests
 import json
 from datetime import datetime, timedelta
 import pytz
+
 
 class Command(BaseCommand):
     help = 'Checks pending Sickw orders and emails guests when done'
