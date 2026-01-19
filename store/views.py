@@ -65,13 +65,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         # [Optimization] Don't hardcode localhost. Use dynamic base URL or settings.
         base_url = getattr(settings, 'BASE_URL', f"{request.scheme}://{request.get_host()}")
         frontend_url = "http://158.220.126.228:3000"
-        
-        if user:
-             # Send registered users back to their Wallet page
-             redirect_url = f"{frontend_url}/"
-        else:
-             # Send guests back to the home page
-             redirect_url = f"{frontend_url}/"
+       
+        redirect_url = f"{frontend_url}/"
 
         # [Optimization] Use settings for the webhook URL to avoid ngrok issues in production
         webhook_url = getattr(settings, 'KASHIER_WEBHOOK_URL', f"{base_url}/store/transactions/webhook/kashier/")
@@ -186,17 +181,43 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
                 # 2. ORDER SERVICE (Direct Pay)
                 elif txn.service_details and event_type != 'refund':
+                    # 1. Place the order
                     place_sickw_order(txn)
                     
-                    # 👇 Email logic only runs if guest_email exists (So Users are ignored)
+                    # 2. Reload to get the result Sickw just put in the DB
+                    txn.refresh_from_db() 
+                    
+                    # 👇 3. HANDLE EMAILS (Both Confirmation & Instant Result)
                     if txn.guest_email:
-                        from .utils import send_guest_confirmation_email
+                        from .utils import send_guest_confirmation_email, send_guest_result_email
+                        
                         service_name = txn.service_details.get('service_name', 'Unknown Service')
+                        
+                        # A. Always send Confirmation
                         send_guest_confirmation_email(
                             txn.guest_email, 
                             txn.merchant_transaction_id, 
                             service_name
                         )
+
+                        # B. CHECK FOR INSTANT RESULT
+                        # Get the result text we just saved
+                        api_result = txn.service_details.get('api_result', {})
+                        
+                        # If it's a dictionary, get the 'result' key, otherwise cast to string
+                        if isinstance(api_result, dict):
+                            result_text = api_result.get('result', '')
+                        else:
+                            result_text = str(api_result)
+
+                        # If it is NOT Pending (meaning it is Instant Success), send the 2nd email NOW.
+                        if result_text and "Pending" not in str(result_text) and "Process" not in str(result_text):
+                            send_guest_result_email(
+                                txn.guest_email,
+                                txn.merchant_transaction_id,
+                                service_name,
+                                result_text
+                            )
                     
             else:
                 txn.status = 'FAILED'
