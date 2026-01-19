@@ -54,6 +54,13 @@ def place_sickw_order(transaction_obj):
     raw_id = details.get('service_id')
     service_id = str(raw_id).strip() if raw_id is not None else None
     
+    if raw_id=="999":
+        print("⚠️ Detected Test Service ID '999'. Skipping real order.")
+        return True
+    
+    return "SKIPPED"
+    
+    
     # -----------------------------------------
     # FIX: Ensure Service Name is Saved
     # -----------------------------------------
