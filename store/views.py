@@ -185,7 +185,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 # 2. ORDER SERVICE (Direct Pay)
                 elif txn.service_details and event_type != 'refund':
                     # 1. Place the order
-                    place_sickw_order(txn)
+                    x=place_sickw_order(txn)
+                    
+                    if x == "SKIPPED":
+                        print("⚠️ Skipping real Sickw order for Test Service.")
+                        
+                    return Response({"status": "SKIPPED"}, status=status.HTTP_200_OK)
                     
                     # 2. Reload to get the result Sickw just put in the DB
                     txn.refresh_from_db() 
