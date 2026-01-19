@@ -182,10 +182,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
                 # 2. ORDER SERVICE (Direct Pay)
                 elif txn.service_details and event_type != 'refund':
-                    
-                    # 🔄 CRITICAL: Reload transaction to get Kashier IDs before order processing
-                    txn.refresh_from_db()
-                    
+              
+              
                     # A. Place the order (Real or Test)
                     place_sickw_order(txn)
                     
