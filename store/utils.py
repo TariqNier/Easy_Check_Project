@@ -54,11 +54,23 @@ def place_sickw_order(transaction_obj):
     raw_id = details.get('service_id')
     service_id = str(raw_id).strip() if raw_id is not None else None
     
-    if raw_id=="999":
-        print("⚠️ Detected Test Service ID '999'. Skipping real order.")
+    if service_id == "999":
+        print("⚠️ Detected Test Service ID '999'. Starting 5-minute timer.")
+        
+        # 1. Set the initial "Pending" status for the Frontend
+        transaction_obj.service_details['api_result'] = {
+            "result": "Pending", 
+            "message": "Processing your order (Approx 5 mins)..."
+        }
+
+        # 2. Set a Mock ID so the Cron Job finds it later
+        transaction_obj.sickw_order_id = f"MOCK-WAITING-{transaction_obj.id}"
+        
+        # 3. Save name for the email later
+        transaction_obj.service_details['service_name'] = "Slow Test Service (5 Mins)"
+        
+        transaction_obj.save()
         return True
-    
-    return "SKIPPED"
     
     
     # -----------------------------------------

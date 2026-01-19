@@ -1,10 +1,10 @@
 from django.core.management.base import BaseCommand
-from store.models import Transaction,Service
+from store.models import Transaction, Service
 from store.utils import send_guest_result_email
 from django.conf import settings
 import requests
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pytz
 
 
@@ -33,6 +33,58 @@ class Command(BaseCommand):
             
             if not sickw_id:
                 continue
+
+            # ---------------------------------------------------
+            # 🛑 TRAP DOOR: Check Timer for Test Service
+            # ---------------------------------------------------
+            if str(sickw_id).startswith("MOCK-WAITING-"):
+                self.stdout.write(f"🧪 Checking Timer for Trx #{txn.id}...")
+
+                # 1. Calculate how long since the order was created
+                # (Make sure to handle timezones correctly if your DB is TZ-aware)
+                now = datetime.now(timezone.utc)
+                created_at = txn.created_at
+                
+                # Difference in seconds
+                elapsed = (now - created_at).total_seconds()
+                wait_time = 300 # 300 seconds = 5 minutes
+
+                if elapsed < wait_time:
+                    remaining = int(wait_time - elapsed)
+                    self.stdout.write(f"   ⏳ Still waiting... ({remaining}s left)")
+                    continue # Skip to next order
+                
+                # 2. Time is Up! Finish the Order
+                self.stdout.write("   ✅ Time up! Marking as Complete.")
+                
+                fake_result_code = "SUCCESS_CODE_999_TEST"
+                
+                # Update DB
+                txn.service_details['api_result'] = {"result": fake_result_code}
+                # Remove the "WAITING" tag so we don't process it again
+                txn.sickw_order_id = f"MOCK-DONE-{txn.id}"
+                txn.save()
+
+                # 3. Fetch Real Service Name
+                service_id = txn.service_details.get('service_id')
+                service_obj = Service.objects.filter(service_id=service_id).first()
+                
+                if service_obj:
+                    service_name = service_obj.name
+                else:
+                    service_name = txn.service_details.get('service_name', 'Test Service')
+
+                # 4. Send the Result Email
+                if txn.guest_email:
+                    send_guest_result_email(
+                        txn.guest_email,
+                        txn.merchant_transaction_id,
+                        service_name,
+                        fake_result_code
+                    )
+                    self.stdout.write(f"   📧 Test Email sent to {txn.guest_email}")
+                
+                continue # Done with this order
 
             # 🛑 TRAP DOOR: Handle Mock Orders
             if str(sickw_id).startswith("MOCK-999-"):
@@ -110,7 +162,6 @@ class Command(BaseCommand):
                             txn.guest_email,
                             txn.merchant_transaction_id,
                             service_name,
-                            result_text
                             result_text
                         )
                         print(f"📧 Email sent to {txn.guest_email}")
