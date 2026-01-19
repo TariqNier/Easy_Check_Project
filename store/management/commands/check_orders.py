@@ -95,7 +95,7 @@ class Command(BaseCommand):
                 time_diff = datetime.now(pytz.utc) - txn.created_at
                 
                 # 2. If less than 5 minutes, keep waiting
-                if time_diff.total_seconds() < 300: # 300 seconds = 5 minutes
+                if time_diff.total_seconds() < 60: # 300 seconds = 5 minutes
                     self.stdout.write(f"   ↳ Still waiting... ({int(time_diff.total_seconds())}s / 300s)")
                     continue
                 
