@@ -46,6 +46,8 @@ class Command(BaseCommand):
                 # Check if result is ready (Sickw usually returns 'result' key)
                 result_text = data.get('result')
                 
+                print(f"🔎 Status for Order {sickw_id}: {result_text}")
+                
                 # If we got a real result (not "Pending" or "Processing")
                 if result_text and "Pending" not in str(result_text):
                     
