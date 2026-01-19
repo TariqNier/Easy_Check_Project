@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from store.models import Transaction, Service
+from store.models import Transaction
 from store.utils import send_guest_result_email
 from django.conf import settings
 import requests
@@ -96,26 +96,17 @@ class Command(BaseCommand):
                     print(f"✅ Order {sickw_id} Finished!")
                     
                     # 1. Update Database
-                    new_result_text = result_text
-                    txn.service_details['api_result'] = new_result_text
+                    txn.service_details['api_result'] = result_text
                     txn.save()
 
-                    # 2. Fetch Real Service Name
-                    service_id = txn.service_details.get('service_id')
-                    service_obj = Service.objects.filter(service_id=service_id).first()
-                    
-                    if service_obj:
-                        service_name = service_obj.name
-                    else:
-                        service_name = txn.service_details.get('service_name', 'Service')
-
-                    # 3. Email the Guest
+                    # 2. Email the Guest
                     if txn.guest_email:
+                        service_name = details.get('service_name', 'Service')
                         send_guest_result_email(
                             txn.guest_email,
                             txn.merchant_transaction_id,
                             service_name,
-                            new_result_text
+                            result_text
                         )
                         print(f"📧 Email sent to {txn.guest_email}")
 

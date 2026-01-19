@@ -210,38 +210,30 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
                 # 2. ORDER SERVICE (Direct Pay)
                 elif txn.service_details and event_type != 'refund':
-                    # A. Place the order
+                    # 1. Place the order
                     place_sickw_order(txn)
                     
-                    # B. Reload to get the result Sickw just put in the DB
+                    # 2. Reload to get the result Sickw just put in the DB
                     txn.refresh_from_db() 
                     
-                    # 👇 FIX: Fetch the Real Service Name
-                    from .models import Service
-                    service_id = txn.service_details.get('service_id')
-                    
-                    # Try to find the service in DB to get its proper name
-                    service_obj = Service.objects.filter(service_id=service_id).first()
-                    if service_obj:
-                        service_name = service_obj.name
-                    else:
-                        service_name = txn.service_details.get('service_name', f'Service #{service_id}')
-
-                    # 👇 C. HANDLE EMAILS (Both Confirmation & Instant Result)
+                    # 👇 3. HANDLE EMAILS (Both Confirmation & Instant Result)
                     if txn.guest_email:
                         from .utils import send_guest_confirmation_email, send_guest_result_email
                         
-                        # 1. Always send Confirmation
+                        service_name = txn.service_details.get('service_name', 'Unknown Service')
+                        
+                        # A. Always send Confirmation
                         send_guest_confirmation_email(
                             txn.guest_email, 
                             txn.merchant_transaction_id, 
                             service_name
                         )
 
-                        # 2. CHECK FOR INSTANT RESULT
+                        # B. CHECK FOR INSTANT RESULT
+                        # Get the result text we just saved
                         api_result = txn.service_details.get('api_result', {})
                         
-                        # Parse result text safely
+                        # If it's a dictionary, get the 'result' key, otherwise cast to string
                         if isinstance(api_result, dict):
                             result_text = api_result.get('result', '')
                         else:
