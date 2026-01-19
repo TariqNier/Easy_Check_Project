@@ -269,19 +269,27 @@ def send_guest_confirmation_email(email, order_id, service_name):
         print(f"Failed to send confirmation email: {e}")
 
 def send_guest_result_email(email, order_id, service_name, result_text):
-    """Sent by the Cron Job when Sickw finishes."""
+    """Sent by the Cron Job or Webhook when Sickw finishes."""
+    
+    # 1. Create the link
+    result_link = f"http://158.220.126.228:3000/result/{order_id}"
+    
     subject = f"Result Ready: Order #{order_id}"
+    
+    # 2. Update the message to send the Link instead of raw HTML
     message = f"""
     Hello!
     
     Your order for {service_name} is complete.
     
-    --- RESULT ---
-    {result_text}
-    --------------
+    Please click the link below to view your full result:
     
+    {result_link}
+    
+    --------------------------------------------------
     Thank you for using our service.
     """
+    
     try:
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
     except Exception as e:
