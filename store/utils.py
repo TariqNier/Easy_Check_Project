@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import os
 import requests
@@ -53,6 +54,25 @@ def place_sickw_order(transaction_obj):
     service_id = details.get('service_id')
     imei = details.get('imei')
     serial = details.get('serial')
+    
+    if service_id == '999':
+        print(f"🧪 Test Mode: Simulating Slow Order for Trx #{transaction_obj.id}")
+        
+        # 1. Set result to "Pending" immediately
+        transaction_obj.service_details['api_result'] = {
+            "result": "Pending",
+            "message": "Simulated wait time of 5 minutes",
+            "start_time": datetime.datetime.now().isoformat()
+        }
+        
+        # 2. Save a fake Sickw ID so the Cron Job picks it up
+        transaction_obj.sickw_order_id = "MOCK-999-" + str(transaction_obj.id)
+        transaction_obj.save()
+        
+        return True # Pretend we succeeded
+    
+    
+    
     
     if not service_id:
         print("❌ Error: Missing Service ID.")
