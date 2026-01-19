@@ -98,15 +98,19 @@ class Command(BaseCommand):
                     
                     # 1. Update Database
                     txn.service_details['api_result'] = result_text
+                    txn.service_details['api_result'] = result_text
                     txn.save()
 
                     # 2. Email the Guest
+                    # 2. Email the Guest
                     if txn.guest_email:
+                        service_name = details.get('service_name', 'Service')
                         service_name = details.get('service_name', 'Service')
                         send_guest_result_email(
                             txn.guest_email,
                             txn.merchant_transaction_id,
                             service_name,
+                            result_text
                             result_text
                         )
                         print(f"📧 Email sent to {txn.guest_email}")
