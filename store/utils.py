@@ -118,8 +118,42 @@ def place_sickw_order(transaction_obj):
     raw_id = details.get('service_id')
     service_id = str(raw_id).strip() if raw_id is not None else None
     
+    # 🧪 TEST MODE: Force Sickw Error to Test Refund Flow
+    # Change "999" to "998" to test the delayed success flow instead
     if service_id == "999":
-        print("⚠️ Detected Test Service ID '999'. Starting 1-minute timer.")
+        print("🧪 TEST MODE: Forcing Sickw Error for Refund Test")
+        
+        # Simulate Sickw returning an error
+        transaction_obj.service_details['api_result'] = {
+            "error": "IMEI is Wrong - Test Refund Trigger"
+        }
+        transaction_obj.service_details['service_name'] = "Test Refund Service"
+        transaction_obj.save()
+        
+        # Trigger the refund logic (same as real error handler)
+        print("🔄 Guest transaction - Attempting Kashier refund...")
+        
+        if transaction_obj.kashier_session_id:
+            refund_success = refund_via_kashier(transaction_obj)
+            
+            if refund_success:
+                transaction_obj.status = 'REFUNDED'
+                transaction_obj.save()
+                print(f"✅ TEST REFUND SUCCESSFUL for Order #{transaction_obj.merchant_transaction_id}")
+            else:
+                transaction_obj.status = 'FAILED'
+                transaction_obj.save()
+                print(f"❌ TEST REFUND FAILED for Order #{transaction_obj.merchant_transaction_id}")
+        else:
+            transaction_obj.status = 'FAILED'
+            transaction_obj.save()
+            print("⚠️ No Kashier Order ID - Cannot test refund")
+        
+        return False # Stop processing (error occurred)
+    
+    # 🧪 TEST MODE: Delayed Success (1-minute timer)
+    if service_id == "998":
+        print("⚠️ Detected Test Service ID '998'. Starting 1-minute timer.")
         
         transaction_obj.service_details['api_result'] = {
             "result": "Pending", 
