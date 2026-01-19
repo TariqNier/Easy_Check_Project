@@ -49,6 +49,41 @@ def place_sickw_order(transaction_obj):
     """
     print("#"*50)
     print(f"🔄 Attempting to process Sickw order for Trx #{transaction_obj.id}...")
+    
+    
+    print("\n" + "="*50)
+    print(f"🐞 DEBUGGING TRANSACTION #{transaction_obj.id}")
+    
+    details = transaction_obj.service_details or {}
+    
+    # Raw dump of what is in the database
+    print(f"📂 Service Details: {details}")
+    
+    # Extract ID and force to string
+    raw_id = details.get('service_id')
+    service_id = str(raw_id).strip() if raw_id is not None else "None"
+    
+    print(f"🔢 Extracted Service ID: '{service_id}' (Type: {type(raw_id)})")
+    
+    # ---------------------------------------------------------
+    # 🛑 TRAP DOOR: If this is our Test Service (999)
+    # ---------------------------------------------------------
+    if service_id == '999':
+        print(f"✅ TRAP DOOR ACTIVATED! Simulating Slow Order...")
+        
+        transaction_obj.service_details['api_result'] = {
+            "result": "Pending",
+            "message": "Simulated wait time of 5 minutes",
+            "start_time": datetime.datetime.now().isoformat()
+        }
+        transaction_obj.sickw_order_id = "MOCK-999-" + str(transaction_obj.id)
+        transaction_obj.save()
+        print("💾 Mock data saved to Database.")
+        return True 
+
+    print(f"❌ Trap Door Failed. logic check: '{service_id}' == '999' is False")
+    print("🚀 Proceeding to Real Sickw API...")
+    
 
     details = transaction_obj.service_details or {}
     service_id = details.get('service_id')
@@ -72,7 +107,7 @@ def place_sickw_order(transaction_obj):
         return True # Pretend we succeeded
     
     
-    
+    print(f"SERVICE ID HERE =====>>>>> {service_id}")
     
     if not service_id:
         print("❌ Error: Missing Service ID.")

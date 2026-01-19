@@ -196,7 +196,8 @@ class ServiceHistorySerializer(serializers.ModelSerializer):
             'service_name', 
             'item_identifier', 
             'result_text',
-            'sickw_order_id'
+            'sickw_order_id',
+            'merchant_transaction_id'
         ]
 
     def get_service_name(self, obj):
