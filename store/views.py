@@ -47,6 +47,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         # --- PATH A: REGISTERED USER (Wallet Balance) ---
         if txn.status == 'COMPLETED':
             
+            
+            
             place_sickw_order(txn)
             
             # [REMOVED: Email logic for registered users deleted as requested]

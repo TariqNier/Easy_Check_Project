@@ -29,8 +29,6 @@ def verify_kashier_signature(data, incoming_signature):
             params.append(f"{key}={data[key]}")
     
     query_string = "&".join(params)
-    # Note: verify if Kashier needs the leading '/' or not based on their latest doc
-    # Usually it's path + "?" + query. If path is just "/", then:
     path = "/"
     final_string = path + query_string.lstrip("&")
     
@@ -50,68 +48,48 @@ def place_sickw_order(transaction_obj):
     print("#"*50)
     print(f"🔄 Attempting to process Sickw order for Trx #{transaction_obj.id}...")
     
-    
-    print("\n" + "="*50)
-    print(f"🐞 DEBUGGING TRANSACTION #{transaction_obj.id}")
-    
     details = transaction_obj.service_details or {}
     
-    # Raw dump of what is in the database
-    print(f"📂 Service Details: {details}")
-    
-    # Extract ID and force to string
+    # Extract ID
     raw_id = details.get('service_id')
-    service_id = str(raw_id).strip() if raw_id is not None else "None"
+    service_id = str(raw_id).strip() if raw_id is not None else None
     
-    print(f"🔢 Extracted Service ID: '{service_id}' (Type: {type(raw_id)})")
-    
-    # ---------------------------------------------------------
-    # 🛑 TRAP DOOR: If this is our Test Service (999)
-    # ---------------------------------------------------------
-    if service_id == '999':
-        print(f"✅ TRAP DOOR ACTIVATED! Simulating Slow Order...")
-        
-        transaction_obj.service_details['api_result'] = {
-            "result": "Pending",
-            "message": "Simulated wait time of 5 minutes",
-            "start_time": datetime.datetime.now().isoformat()
-        }
-        transaction_obj.sickw_order_id = "MOCK-999-" + str(transaction_obj.id)
-        transaction_obj.save()
-        print("💾 Mock data saved to Database.")
-        return True 
+    # -----------------------------------------
+    # FIX: Ensure Service Name is Saved
+    # -----------------------------------------
+    # We look up the real name from the DB and save it to service_details
+    # so emails never say "Unknown Service".
+    if raw_id:
+        try:
+            # Try to find by Service ID or Primary Key to get the name
+            svc = Service.objects.filter(service_id=raw_id).first()
+            if not svc and str(raw_id).isdigit():
+                # Fallback: maybe it's a Primary Key?
+                svc = Service.objects.filter(pk=raw_id).first()
+            
+            if svc:
+                transaction_obj.service_details['service_name'] = svc.name
+                transaction_obj.save(update_fields=['service_details'])
+                print(f"✅ Fixed Service Name: {svc.name}")
+                
+                # OPTIONAL: If the frontend sent a PK (e.g. 94) instead of the Real ID,
+                # we can swap it here to ensure the API call works.
+                # If you want to rely purely on frontend sending the correct ID, comment this line out:
+                service_id = str(svc.service_id).strip() 
 
-    print(f"❌ Trap Door Failed. logic check: '{service_id}' == '999' is False")
-    print("🚀 Proceeding to Real Sickw API...")
-    
+        except Exception as e:
+            print(f"⚠️ Could not fix service name: {e}")
+    # -----------------------------------------
 
-    details = transaction_obj.service_details or {}
-    service_id = details.get('service_id')
-    imei = details.get('imei')
-    serial = details.get('serial')
-    
-    if service_id == '999':
-        print(f"🧪 Test Mode: Simulating Slow Order for Trx #{transaction_obj.id}")
-        
-        # 1. Set result to "Pending" immediately
-        transaction_obj.service_details['api_result'] = {
-            "result": "Pending",
-            "message": "Simulated wait time of 5 minutes",
-            "start_time": datetime.datetime.now().isoformat()
-        }
-        
-        # 2. Save a fake Sickw ID so the Cron Job picks it up
-        transaction_obj.sickw_order_id = "MOCK-999-" + str(transaction_obj.id)
-        transaction_obj.save()
-        
-        return True # Pretend we succeeded
-    
-    
-    print(f"SERVICE ID HERE =====>>>>> {service_id}")
-    
     if not service_id:
         print("❌ Error: Missing Service ID.")
         return False
+
+    # Extract IMEI/Serial
+    imei = details.get('imei')
+    serial = details.get('serial')
+
+    print(f"🚀 Sending Real Order to Sickw: {service_id}...")
 
     api_key = getattr(settings, 'SICKW_API_KEY', None)
     url = "https://sickw.com/api.php"
@@ -146,9 +124,9 @@ def place_sickw_order(transaction_obj):
         # Check for known errors
         error_keywords = [
            "IMEI is Wrong", 
-            "IMEI or SN is Wrong", # <--- Added this
-            "Error E02",           # <--- Added this
-            "Invalid",             # <--- Catch "Invalid IMEI", "Invalid SN"
+            "IMEI or SN is Wrong",
+            "Error E02",
+            "Invalid",
             "Not Found", 
             "Error E01", 
             "Rejected", 
@@ -183,13 +161,10 @@ def place_sickw_order(transaction_obj):
 
         # Success Case
         print("✅ Service ordered successfully on Sickw.")
-        # DO NOT overwrite sickw_order_id here. It was set above.
         return True 
 
     except requests.RequestException as e:
         print(f"❌ Network/Connection Error: {e}")
-        # Note: Network error does not mean "Failed". It might have gone through.
-        # We leave it as COMPLETED but log the error so Admin checks it manually.
         return False
 
 
@@ -325,18 +300,26 @@ def send_guest_confirmation_email(email, order_id, service_name):
 
 def send_guest_result_email(email, order_id, service_name, result_text):
     """Sent by the Cron Job when Sickw finishes."""
+    
+    # 1. Create the clean link (Hardcoded IP as requested)
+    result_link = f"http://158.220.126.228:3000/result/{order_id}"
+    
     subject = f"Result Ready: Order #{order_id}"
+    
+    # 2. Send Link instead of raw result text
     message = f"""
     Hello!
     
     Your order for {service_name} is complete.
     
-    --- RESULT ---
-    {result_text}
-    --------------
+    Please click the link below to view your full result:
     
+    {result_link}
+    
+    --------------------------------------------------
     Thank you for using our service.
     """
+    
     try:
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
     except Exception as e:
