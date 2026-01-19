@@ -19,80 +19,6 @@ def get_kashier_auth_headers():
         "Content-Type": "application/json"
     }
 
-def refund_via_kashier(transaction_obj):
-    """
-    Refunds a Kashier payment using Kashier Refund API.
-    Returns True if successful, False otherwise.
-    """
-    # Debug: Print all Kashier-related IDs
-    print(f"🔍 DEBUG - Transaction #{transaction_obj.id}:")
-    print(f"   kashier_session_id: {transaction_obj.kashier_session_id}")
-    print(f"   kashier_transaction_id: {transaction_obj.kashier_transaction_id}")
-    print(f"   merchant_transaction_id: {transaction_obj.merchant_transaction_id}")
-    
-    if not transaction_obj.kashier_session_id:
-        print("❌ No Kashier Order ID found for refund")
-        return False
-    
-    # Use correct endpoint based on test/production mode
-    base_url = "https://test-fep.kashier.io" if settings.KASHIER_TEST_MODE else "https://fep.kashier.io"
-    url = f"{base_url}/v3/orders/{transaction_obj.kashier_session_id}"
-    
-    print(f"🌐 Refund API URL: {url}")
-    
-    payload = {
-        "apiOperation": "REFUND",
-        "reason": "Service Provider Error - Order could not be fulfilled",
-        "transaction": {
-            "amount": float(transaction_obj.amount)
-        }
-    }
-    
-    print(f"📤 Refund Payload: {payload}")
-    
-    headers = {
-        "Authorization": settings.KASHIER_SECRET_KEY,
-        "Content-Type": "application/json",
-        "accept": "application/json"
-    }
-    
-    try:
-        # PUT request as per Kashier documentation
-        response = requests.put(
-            url,
-            json=payload,
-            headers=headers,
-            timeout=15
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            # Check if refund was successful
-            if data.get('status') == 'SUCCESS':
-                # Save refund details
-                transaction_obj.service_details['refund_details'] = {
-                    'refund_id': data.get('response', {}).get('transactionId'),
-                    'kashier_order_id': data.get('response', {}).get('cardOrderId'),
-                    'refunded_at': datetime.now().isoformat(),
-                    'refund_amount': float(transaction_obj.amount),
-                    'reason': 'Sickw Service Error',
-                    'status': data.get('response', {}).get('status')
-                }
-                
-                print(f"✅ Kashier Refund Success: {data.get('messages', {}).get('en', 'Refund processed')}")
-                return True
-            else:
-                print(f"❌ Kashier Refund Failed: Status={data.get('status')}")
-                return False
-        else:
-            print(f"❌ Kashier Refund API Error: HTTP {response.status_code} - {response.text}")
-            return False
-            
-    except requests.RequestException as e:
-        print(f"❌ Kashier Refund Network Error: {e}")
-        return False
-
 def verify_kashier_signature(data, incoming_signature):
     secret_key = settings.KASHIER_API_KEY
     # Sort keys alphabetically to match Kashier's signing logic
@@ -127,53 +53,6 @@ def place_sickw_order(transaction_obj):
     # Extract ID
     raw_id = details.get('service_id')
     service_id = str(raw_id).strip() if raw_id is not None else None
-    
-    # 🧪 TEST MODE: Force Sickw Error to Test Refund Flow
-    # Change "999" to "998" to test the delayed success flow instead
-    if service_id == "999":
-        print("🧪 TEST MODE: Forcing Sickw Error for Refund Test")
-        
-        # Simulate Sickw returning an error
-        transaction_obj.service_details['api_result'] = {
-            "error": "IMEI is Wrong - Test Refund Trigger"
-        }
-        transaction_obj.service_details['service_name'] = "Test Refund Service"
-        transaction_obj.save()
-        
-        # Trigger the refund logic (same as real error handler)
-        print("🔄 Guest transaction - Attempting Kashier refund...")
-        
-        if transaction_obj.kashier_session_id:
-            refund_success = refund_via_kashier(transaction_obj)
-            
-            if refund_success:
-                transaction_obj.status = 'REFUNDED'
-                transaction_obj.save()
-                print(f"✅ TEST REFUND SUCCESSFUL for Order #{transaction_obj.merchant_transaction_id}")
-            else:
-                transaction_obj.status = 'FAILED'
-                transaction_obj.save()
-                print(f"❌ TEST REFUND FAILED for Order #{transaction_obj.merchant_transaction_id}")
-        else:
-            transaction_obj.status = 'FAILED'
-            transaction_obj.save()
-            print("⚠️ No Kashier Order ID - Cannot test refund")
-        
-        return False # Stop processing (error occurred)
-    
-    # 🧪 TEST MODE: Delayed Success (1-minute timer)
-    if service_id == "998":
-        print("⚠️ Detected Test Service ID '998'. Starting 1-minute timer.")
-        
-        transaction_obj.service_details['api_result'] = {
-            "result": "Pending", 
-            "message": "Processing... (Wait 1 minute)"
-        }
-        transaction_obj.sickw_order_id = f"MOCK-WAITING-{transaction_obj.id}"
-        transaction_obj.service_details['service_name'] = "Fast Test Service (1 Min)"
-        transaction_obj.save()
-        return True
-    
     
     # -----------------------------------------
     # FIX: Ensure Service Name is Saved
@@ -275,25 +154,10 @@ def place_sickw_order(transaction_obj):
                     transaction_obj.save()
                     print(f"💰 Auto-Refunded {transaction_obj.amount} to User {transaction_obj.user.id}")
             else:
-                # This is a GUEST who paid via Kashier
-                # Attempt automatic refund through Kashier Refund API
-                print("🔄 Guest transaction - Attempting Kashier refund...")
-                
-                if transaction_obj.kashier_session_id:
-                    refund_success = refund_via_kashier(transaction_obj)
-                    
-                    if refund_success:
-                        transaction_obj.status = 'REFUNDED'
-                        transaction_obj.save()
-                        print(f"💳 Kashier Auto-Refund Complete for Order #{transaction_obj.merchant_transaction_id}")
-                    else:
-                        transaction_obj.status = 'FAILED'
-                        transaction_obj.save()
-                        print(f"⚠️ Kashier Refund Failed - Manual intervention needed for Order #{transaction_obj.merchant_transaction_id}")
-                else:
-                    transaction_obj.status = 'FAILED'
-                    transaction_obj.save()
-                    print("⚠️ No Kashier Order ID - Cannot auto-refund guest")
+                # Guest transaction - admin will refund manually via Kashier dashboard
+                transaction_obj.status = 'FAILED'
+                transaction_obj.save()
+                print("⚠️ Guest transaction error - Manual refund required")
 
             return False 
 
