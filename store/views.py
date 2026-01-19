@@ -35,6 +35,44 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return [permissions.IsAdminUser()]
     
     def create(self, request, *args, **kwargs):
+        # ====================================================
+        # 🐞 DEBUGGING ZONE - START
+        # ====================================================
+        print("\n" + "!"*50)
+        print("🐞 DEBUG MODE: INTERCEPTING REQUEST BEFORE KASHIER")
+        print(f"📥 Incoming Payload: {request.data}")
+
+        # 1. Get the Service ID sent by Frontend
+        service_pk = request.data.get('service')
+        print(f"🔎 Frontend sent Service PK (Database ID): {service_pk}")
+
+        # 2. Look up the ACTUAL Service in the Database
+        from .models import Service
+        try:
+            svc = Service.objects.get(pk=service_pk)
+            print(f"✅ Database Match Found: {svc.name}")
+            print(f"🔢 PROVIDER ID (This is what logic checks): '{svc.service_id}'")
+            
+            # 3. Check if it matches our expectation
+            if str(svc.service_id).strip() == '999':
+                print("🎉 SUCCESS! The logic WILL see this as 999.")
+            else:
+                print(f"⚠️ PROBLEM! The logic will see '{svc.service_id}', NOT '999'.")
+                print("👉 Go to Django Admin -> Services -> Edit this service -> Change 'Service Id' to 999.")
+
+        except Service.DoesNotExist:
+            print("❌ Error: This Service PK does not exist in your database.")
+
+        print("!"*50 + "\n")
+        
+        # 🛑 STOP THE PROCESS HERE
+        return Response({"message": "DEBUG MODE: Check your Docker logs now!"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ====================================================
+        # 🐞 DEBUGGING ZONE - END
+        # ====================================================
+
+        # ... (The rest of your code is below, but it won't run) ...
         serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
   
