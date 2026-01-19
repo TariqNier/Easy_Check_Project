@@ -39,35 +39,26 @@ class TransactionViewSet(viewsets.ModelViewSet):
         # 🐞 DEBUGGING ZONE - START
         # ====================================================
         print("\n" + "!"*50)
-        print("🐞 DEBUG MODE: INTERCEPTING REQUEST BEFORE KASHIER")
-        print(f"📥 Incoming Payload: {request.data}")
+        print("🐞 DEBUG MODE: INTERCEPTING REQUEST")
+        print(f"📥 Payload: {request.data}")
 
-        # 1. Get the Service ID sent by Frontend
+        # 1. Try to find the ID in two places
         service_pk = request.data.get('service')
-        print(f"🔎 Frontend sent Service PK (Database ID): {service_pk}")
+        
+        # If not at top level, check inside service_details
+        if not service_pk and 'service_details' in request.data:
+            service_pk = request.data['service_details'].get('service_id')
 
-        # 2. Look up the ACTUAL Service in the Database
-        from .models import Service
-        try:
-            svc = Service.objects.get(pk=service_pk)
-            print(f"✅ Database Match Found: {svc.name}")
-            print(f"🔢 PROVIDER ID (This is what logic checks): '{svc.service_id}'")
-            
-            # 3. Check if it matches our expectation
-            if str(svc.service_id).strip() == '999':
-                print("🎉 SUCCESS! The logic WILL see this as 999.")
-            else:
-                print(f"⚠️ PROBLEM! The logic will see '{svc.service_id}', NOT '999'.")
-                print("👉 Go to Django Admin -> Services -> Edit this service -> Change 'Service Id' to 999.")
+        print(f"🔎 Extracted Service ID: {service_pk}")
 
-        except Service.DoesNotExist:
-            print("❌ Error: This Service PK does not exist in your database.")
+        if str(service_pk) == '999':
+             print("🎉 SUCCESS! The Backend received 999.")
+        else:
+             print(f"⚠️ FAILURE! The Backend received '{service_pk}', not '999'.")
+             print("👉 You are likely selecting the wrong service on the Frontend.")
 
         print("!"*50 + "\n")
-        
-        # 🛑 STOP THE PROCESS HERE
-        return Response({"message": "DEBUG MODE: Check your Docker logs now!"}, status=status.HTTP_400_BAD_REQUEST)
-
+        return Response({"message": "DEBUG DONE"}, status=status.HTTP_400_BAD_REQUEST)
         # ====================================================
         # 🐞 DEBUGGING ZONE - END
         # ====================================================
