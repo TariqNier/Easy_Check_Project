@@ -1,6 +1,6 @@
 # store/admin.py
 from django.contrib import admin
-from .models import Service, Transaction
+from .models import Service, Transaction, BalanceTransaction
 
 @admin.register(Service)
 class ServiceAdmin(admin.ModelAdmin):
@@ -22,3 +22,9 @@ class ServiceAdmin(admin.ModelAdmin):
 class TransactionAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'amount', 'status', 'created_at','merchant_transaction_id')
     list_filter = ('status', 'created_at')
+    
+    
+@admin.register(BalanceTransaction)
+class BalanceTransactionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'amount', 'kind', 'created_at')
+    list_filter = ('kind', 'created_at')
