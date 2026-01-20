@@ -88,6 +88,31 @@ class Service(models.Model):
         return f"{self.name} ({self.final_price} EGP)"
 
 
+class BalanceTransaction(models.Model):
+    TRANSACTION_TYPES=(
+        ('TOPUP','Top-up'),
+        ('PURCHASE','Purchase'),
+        ('REFUND','Refund')
+    )
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    kind = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    source_transaction = models.ForeignKey(
+        'Transaction', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+      related_name='balance_impacts'
+    )
+    
+    note = models.CharField(max_length=100, blank=True, null=True)
+
+
+    def __str__(self):
+        return f"Balance for {self.user.phone_number}: {self.amount} EGP"
+
 
 
 

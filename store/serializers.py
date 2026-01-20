@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import Service, Transaction
+from .models import Service, Transaction, BalanceTransaction
 from .utils import is_valid_luhn
 
 User = get_user_model()
@@ -108,12 +108,25 @@ class UserTransactionSerializer(TransactionSerializer):
             
                 validated_data['amount'] = amount
                 validated_data['is_balance_topup'] = False
-                validated_data['status'] = 'COMPLETED' 
+                validated_data['status'] = 'COMPLETED'
+                
+                # Create transaction first to get the ID
+                txn = super().create(validated_data)
+                
+                # Record balance transaction
+                BalanceTransaction.objects.create(
+                    user=user_locked,
+                    amount=amount,
+                    kind='PURCHASE',
+                    source_transaction=txn,
+                    note=f"Service: {service_instance.name}"
+                )
+                
+                return txn 
             else:
                 validated_data['is_balance_topup'] = True
-                validated_data['status'] = 'PENDING'  
-
-            return super().create(validated_data)
+                validated_data['status'] = 'PENDING'
+                return super().create(validated_data)
 
 class GuestTransactionSerializer(TransactionSerializer):
     service_details = serializers.JSONField(required=True) 
@@ -146,28 +159,21 @@ class UserServiceSerializer(serializers.ModelSerializer):
         model = Service
         fields = ['id', 'service_id', 'name', 'final_price', 'description', 'is_active']
         
-class WalletHistorySerializer(serializers.ModelSerializer):
-    transaction_type = serializers.SerializerMethodField()
+class BalanceTransactionSerializer(serializers.ModelSerializer):
     formatted_amount = serializers.SerializerMethodField()
-
+    
     class Meta:
-        model = Transaction
-        fields = [
-            'id', 
-            'created_at', 
-            'status', 
-            'amount', 
-            'transaction_type', 
-            'formatted_amount'
-        ]
-
-    def get_transaction_type(self, obj):
-        return "Top-up" if obj.is_balance_topup else "Purchase"
-
+        model = BalanceTransaction
+        fields = ['id', 'created_at', 'kind', 'amount', 'formatted_amount', 'note']
+    
     def get_formatted_amount(self, obj):
- 
-        sign = "+" if obj.is_balance_topup else "-"
-        return f"{sign}{obj.amount}"
+        if obj.kind == 'TOPUP':
+            return f"+{obj.amount}"
+        elif obj.kind == 'PURCHASE':
+            return f"-{obj.amount}"
+        elif obj.kind == 'REFUND':
+            return f"+{obj.amount}"
+        return str(obj.amount)
     
 # 1. Standard Serializer for the Homepage List
 class ServiceSerializer(serializers.ModelSerializer):

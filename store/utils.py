@@ -150,14 +150,27 @@ def place_sickw_order(transaction_obj):
             # --- AUTO REFUND LOGIC ---
             # If the user has a wallet and the transaction was marked COMPLETED, refund them.
             if transaction_obj.user and transaction_obj.status == 'COMPLETED':
+                from .models import BalanceTransaction
+                
                 with transaction.atomic():
                     # Refund Balance
                     transaction_obj.user.balance = F('balance') + transaction_obj.amount
                     transaction_obj.user.save()
+                    transaction_obj.user.refresh_from_db()
                     
                     # Mark Transaction as Refunded
                     transaction_obj.status = 'REFUNDED'
                     transaction_obj.save()
+                    
+                    # Record balance transaction
+                    BalanceTransaction.objects.create(
+                        user=transaction_obj.user,
+                        amount=transaction_obj.amount,
+                        kind='REFUND',
+                        source_transaction=transaction_obj,
+                        note="Auto-refund: Service error"
+                    )
+                    
                     print(f"💰 Auto-Refunded {transaction_obj.amount} to User {transaction_obj.user.id}")
             else:
                 # Guest transaction - admin will refund manually via Kashier dashboard

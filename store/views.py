@@ -9,12 +9,12 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
-from .models import Service, Transaction
+from .models import Service, Transaction, BalanceTransaction
 from .serializers import (
     UserTransactionSerializer, 
     GuestTransactionSerializer,
     UserServiceSerializer,
-    WalletHistorySerializer,
+    BalanceTransactionSerializer,
     ServiceHistorySerializer
 )
 from .utils import get_kashier_auth_headers, place_sickw_order, sync_services_if_expired
@@ -178,7 +178,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 if txn.is_balance_topup and txn.user:
                     txn.user.balance = F('balance') + txn.amount
                     txn.user.save(update_fields=['balance'])
-                    txn.user.refresh_from_db() 
+                    txn.user.refresh_from_db()
+                    
+                    # Record balance transaction
+                    BalanceTransaction.objects.create(
+                        user=txn.user,
+                        amount=txn.amount,
+                        kind='TOPUP',
+                        source_transaction=txn
+                    ) 
 
                 # 2. ORDER SERVICE (Direct Pay)
                 elif txn.service_details and event_type != 'refund':
@@ -250,20 +258,19 @@ class TransactionViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], url_path='wallet-history')
     def wallet_history(self, request):
- 
         user = request.user
         if not user.is_authenticated:
             return Response({"error": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        transactions = Transaction.objects.filter(user=user).order_by('-created_at')
+        # Query BalanceTransactions instead of Transactions
+        balance_txns = BalanceTransaction.objects.filter(user=user).order_by('-created_at')
         
-      
-        page = self.paginate_queryset(transactions)
+        page = self.paginate_queryset(balance_txns)
         if page is not None:
-            serializer = WalletHistorySerializer(page, many=True)
+            serializer = BalanceTransactionSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
             
-        serializer = WalletHistorySerializer(transactions, many=True)
+        serializer = BalanceTransactionSerializer(balance_txns, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='service-history')
