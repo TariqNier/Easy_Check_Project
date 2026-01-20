@@ -47,17 +47,17 @@ def refund_kashier_payment(transaction_obj):
     Refunds a Kashier payment for guest transactions.
     Returns True if successful, False otherwise.
     """
-    # Use kashier_session_id (orderId) not kashier_transaction_id
-    orderId = transaction_obj.kashier_transaction_id
+    # Try merchant_transaction_id first (merchant order reference)
+    orderId = str(transaction_obj.merchant_transaction_id)
     
     # Debug logging
     print(f"🔍 DEBUG - Transaction #{transaction_obj.id}:")
+    print(f"   Using merchant_transaction_id: {orderId}")
     print(f"   kashier_session_id: {transaction_obj.kashier_session_id}")
     print(f"   kashier_transaction_id: {transaction_obj.kashier_transaction_id}")
-    print(f"   merchant_transaction_id: {transaction_obj.merchant_transaction_id}")
     
     if not orderId:
-        print(f"❌ Cannot refund: No Kashier Order ID for Trx #{transaction_obj.id}")
+        print(f"❌ Cannot refund: No Order ID for Trx #{transaction_obj.id}")
         return False
     
     if settings.KASHIER_TEST_MODE:
@@ -233,7 +233,7 @@ def place_sickw_order(transaction_obj):
                     print(f"💰 Auto-Refunded {transaction_obj.amount} to User {transaction_obj.user.id}")
             else:
                 # Guest transaction - Auto refund via Kashier API
-                if transaction_obj.kashier_transaction_id:
+                if transaction_obj.kashier_session_id:
                     refund_success = refund_kashier_payment(transaction_obj)
                     
                     if refund_success:
