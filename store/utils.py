@@ -15,7 +15,8 @@ from django.core.mail import send_mail
 def get_kashier_auth_headers():
     return {
         "Authorization": settings.KASHIER_SECRET_KEY,
-        "api-key": settings.KASHIER_API_KEY,       
+        "api-key": settings.KASHIER_API_KEY,
+        "accept": "application/json",
         "Content-Type": "application/json"
     }
 
@@ -39,6 +40,58 @@ def verify_kashier_signature(data, incoming_signature):
     ).hexdigest()
     
     return hmac.compare_digest(signature, incoming_signature)
+
+
+def refund_kashier_payment(transaction_obj):
+    """
+    Refunds a Kashier payment for guest transactions.
+    Returns True if successful, False otherwise.
+    """
+    # Use kashier_session_id (orderId) not kashier_transaction_id
+    orderId = transaction_obj.kashier_session_id
+    
+    if not orderId:
+        print(f"❌ Cannot refund: No Kashier Order ID for Trx #{transaction_obj.id}")
+        return False
+    
+    if settings.KASHIER_TEST_MODE:
+        api_url = f"https://test-fep.kashier.io/v3/orders/{orderId}"
+    else:
+        api_url = f"https://fep.kashier.io/v3/orders/{orderId}"
+        
+    payload = {
+        'apiOperation': 'REFUND',
+        'reason': 'Service Error - Auto Refund',
+        "transaction": {
+            "amount": float(transaction_obj.amount)  # Use float, not string
+        }
+    }
+    
+    try:
+        response = requests.put(api_url, headers=get_kashier_auth_headers(), json=payload, timeout=15)
+        data = response.json()
+        
+        # Check response based on Kashier documentation
+        if response.status_code == 200:
+            response_status = data.get('response', {}).get('status')
+            
+            if response_status == 'SUCCESS':
+                print(f"✅ Refund Successful for Trx #{transaction_obj.id}")
+                return True
+            elif response_status == 'PENDING':
+                print(f"⏳ Refund Pending for Trx #{transaction_obj.id}")
+                return True  # Consider pending as success
+            else:
+                print(f"❌ Refund Failed for Trx #{transaction_obj.id}: {data}")
+                return False
+        else:
+            print(f"❌ Refund API Error for Trx #{transaction_obj.id}: {response.status_code} - {data}")
+            return False
+            
+    except requests.RequestException as e:
+        print(f"❌ Refund Network Error for Trx #{transaction_obj.id}: {e}")
+        return False
+
 
 def place_sickw_order(transaction_obj):
     """
@@ -173,10 +226,23 @@ def place_sickw_order(transaction_obj):
                     
                     print(f"💰 Auto-Refunded {transaction_obj.amount} to User {transaction_obj.user.id}")
             else:
-                # Guest transaction - admin will refund manually via Kashier dashboard
-                transaction_obj.status = 'FAILED'
-                transaction_obj.save()
-                print("⚠️ Guest transaction error - Manual refund required")
+                # Guest transaction - Auto refund via Kashier API
+                if transaction_obj.kashier_session_id:
+                    refund_success = refund_kashier_payment(transaction_obj)
+                    
+                    if refund_success:
+                        transaction_obj.status = 'REFUNDED'
+                        transaction_obj.save()
+                        print(f"💳 Kashier Auto-Refunded {transaction_obj.amount} for Guest Order {transaction_obj.id}")
+                    else:
+                        transaction_obj.status = 'FAILED'
+                        transaction_obj.save()
+                        print("⚠️ Kashier refund failed - Manual refund required")
+                else:
+                    # No Kashier order ID means payment wasn't completed
+                    transaction_obj.status = 'FAILED'
+                    transaction_obj.save()
+                    print("⚠️ No Kashier Order ID - Cannot auto-refund")
 
             return False 
 

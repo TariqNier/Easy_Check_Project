@@ -217,22 +217,4 @@ class ServiceHistorySerializer(serializers.ModelSerializer):
         return details.get('imei') or details.get('serial') or "N/A"
 
     def get_result_text(self, obj):
-        details = obj.service_details or {}
-        api_result = details.get('api_result')
-        
-        if not api_result:
-            return None
-            
-        # Handle formatting if Sickw returns a list (rare but possible)
-        if isinstance(api_result, list):
-            return ", ".join(map(str, api_result))
-
-        # Handle standard string results (HTML or Text)
-        if isinstance(api_result, str):
-            return api_result
-            
-        # Handle Dict results (like errors or complex objects)
-        if isinstance(api_result, dict):
-            return api_result.get('result') or api_result.get('status')
-    
-        return str(api_result)
+        return f"http://158.220.126.228:3000/result/{obj.merchant_transaction_id}"
