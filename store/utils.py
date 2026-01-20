@@ -241,6 +241,16 @@ def place_sickw_order(transaction_obj):
                         transaction_obj.status = 'REFUNDED'
                         transaction_obj.save()
                         print(f"💳 Kashier Auto-Refunded {transaction_obj.amount} for Guest Order {transaction_obj.id}")
+                        
+                        # Send refund email to guest
+                        if transaction_obj.guest_email:
+                            service_name = details.get('service_name', 'your order')
+                            send_guest_refund_email(
+                                transaction_obj.guest_email,
+                                transaction_obj.merchant_transaction_id,
+                                service_name,
+                                transaction_obj.amount
+                            )
                     else:
                         transaction_obj.status = 'FAILED'
                         transaction_obj.save()
@@ -400,6 +410,34 @@ def send_guest_confirmation_email(email, order_id, service_name):
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
     except Exception as e:
         print(f"Failed to send confirmation email: {e}")
+
+def send_guest_refund_email(email, order_id, service_name, amount):
+    """Sent when guest order is refunded due to service error."""
+    subject = f"Refund Processed: Order #{order_id}"
+    
+    message = f"""
+    Hello,
+    
+    Your order for {service_name} could not be completed due to a service error.
+    
+    We have automatically processed a full refund of {amount} EGP.
+    
+    The refund will appear in your payment method within 3-5 business days.
+    
+    Order ID: {order_id}
+    Refund Amount: {amount} EGP
+    
+    We apologize for any inconvenience.
+    
+    --------------------------------------------------
+    If you have any questions, please contact our support team.
+    """
+    
+    try:
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+        print(f"✅ Refund email sent to {email}")
+    except Exception as e:
+        print(f"❌ Failed to send refund email: {e}")
 
 def send_guest_result_email(email, order_id, service_name, result_text):
     """Sent by the Cron Job when Sickw finishes."""
