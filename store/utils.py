@@ -80,8 +80,9 @@ def refund_kashier_payment(transaction_obj):
         # Check response based on Kashier documentation
         if response.status_code == 200:
             response_status = data.get('response', {}).get('status')
+            overall_status = data.get('status')
             
-            if response_status == 'SUCCESS':
+            if response_status in ['SUCCESS', 'REFUNDED'] or overall_status == 'SUCCESS':
                 print(f"✅ Refund Successful for Trx #{transaction_obj.id}")
                 return True
             elif response_status == 'PENDING':
