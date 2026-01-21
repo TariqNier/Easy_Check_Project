@@ -164,7 +164,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://158.220.126.228",       # Allow requests from the raw IP (browsers sometimes do this)
-    "http://158.220.126.228:3000",  # <--- CRITICAL: Allow requests from the Frontend Port
+    "http://158.220.126.228:3000",
+    "http://localhost:5174",
+    "http://localhost:5173",
+
 ]
 CORS_ALLOW_CREDENTIALS = True
 
