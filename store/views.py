@@ -58,14 +58,6 @@ class TransactionViewSet(viewsets.ModelViewSet):
             
             place_sickw_order(txn)
 
-            if user:
-                BalanceTransaction.objects.create(
-                    user=user,
-                    amount=txn.amount,
-                    kind='PURCHASE',  # Matches your model choice
-                    source_transaction=txn
-                )
-            
             # [REMOVED: Email logic for registered users deleted as requested]
             
             user.refresh_from_db()
