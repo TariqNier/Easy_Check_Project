@@ -30,8 +30,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
         return GuestTransactionSerializer
     
     def get_permissions(self):
+        # 1. Open to Everyone
         if self.action in ['create', 'kashier_webhook', 'show_order']:
             return [permissions.AllowAny()]
+        
+        # 2. Only for Logged In Users (The Fix!)
+        if self.action in ['wallet_history', 'service_history']:
+            return [permissions.IsAuthenticated()]
+            
+        # 3. Everything else (list all, delete, etc.) is Admin Only
         return [permissions.IsAdminUser()]
     
     def create(self, request, *args, **kwargs):
@@ -50,6 +57,14 @@ class TransactionViewSet(viewsets.ModelViewSet):
             
             
             place_sickw_order(txn)
+
+            if user:
+                BalanceTransaction.objects.create(
+                    user=user,
+                    amount=txn.amount,
+                    kind='PURCHASE',  # Matches your model choice
+                    source_transaction=txn
+                )
             
             # [REMOVED: Email logic for registered users deleted as requested]
             
