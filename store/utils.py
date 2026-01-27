@@ -50,12 +50,6 @@ def refund_kashier_payment(transaction_obj):
     # Try merchant_transaction_id first (merchant order reference)
     orderId = str(transaction_obj.merchant_transaction_id)
     
-    # Debug logging
-    print(f"🔍 DEBUG - Transaction #{transaction_obj.id}:")
-    print(f"   Using merchant_transaction_id: {orderId}")
-    print(f"   kashier_session_id: {transaction_obj.kashier_session_id}")
-    print(f"   kashier_transaction_id: {transaction_obj.kashier_transaction_id}")
-    
     if not orderId:
         print(f"❌ Cannot refund: No Order ID for Trx #{transaction_obj.id}")
         return False

@@ -26,6 +26,27 @@ class Command(BaseCommand):
             sickw_id = str(txn.sickw_order_id)
             self.stdout.write(f"👉 Checking Order #{txn.id} (Sickw ID: {sickw_id})")
 
+            # 🛡️ SAFETY CHECK 1: Do we ALREADY have a result?
+            # If we have a result that is NOT "Pending" and NOT an "Error", we are done.
+            current_data = txn.service_details.get('api_result', {})
+            # Handle case where result might be a string or a dict
+            if isinstance(current_data, dict):
+                current_text = str(current_data.get('result', ''))
+            else:
+                current_text = str(current_data)
+
+            # If the current result is long (likely a description), it is valid.
+            if current_text and len(current_text) > 20 and "Pending" not in current_text and "Error" not in current_text:
+                self.stdout.write(f"   ✅ Order #{txn.id} already has a valid result. Marking as DONE.")
+                txn.guest_result = True
+                txn.save()
+                continue # Skip the API call completely
+
+            # 🛡️ SAFETY CHECK 2: Validate ID before calling
+            if not sickw_id or "RETRY" in sickw_id or sickw_id == "None":
+                self.stdout.write(f"   ⚠️ Skipping invalid Sickw ID: {sickw_id}")
+                continue
+
             # --- API CHECK ---
             api_key = getattr(settings, 'SICKW_API_KEY', None)
             url = "https://sickw.com/api.php"
