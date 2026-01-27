@@ -62,6 +62,16 @@ class Command(BaseCommand):
                 data = response.json()
                 new_result_text = data.get('result')
 
+                # 🛡️ SAFETY CHECK 3: Don't save Garbage Errors
+                # If Sickw says "Service ID is Wrong" for an existing order, ignore it.
+                if "Error S01" in str(new_result_text) or "Error E02" in str(new_result_text):
+                    self.stdout.write(f"   ⚠️ Sickw returned error ({new_result_text}). IGNORING update.")
+                    # Force mark as done to stop the loop, assuming the old data was better (or lost)
+                    txn.guest_result = True 
+                    txn.save()
+                    continue
+
+
                 # --- PENDING CHECK ---
                 is_pending = False
                 res_str = str(new_result_text)
