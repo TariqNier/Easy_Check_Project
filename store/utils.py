@@ -1,10 +1,9 @@
-from datetime import datetime
+
 import json
 import os
 import requests
 import hmac
 import hashlib
-from decimal import Decimal
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction

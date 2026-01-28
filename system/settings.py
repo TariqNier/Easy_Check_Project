@@ -29,11 +29,11 @@ load_dotenv(dotenv_path=env_path)
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['158.220.126.228','localhost']
 
 AUTH_USER_MODEL = 'authentication.User'
 
@@ -138,6 +138,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -161,12 +165,12 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "http://localhost:3000", #remove
+    "http://127.0.0.1:3000", 
     "http://158.220.126.228",       # Allow requests from the raw IP (browsers sometimes do this)
     "http://158.220.126.228:3000",
-    "http://localhost:5174",
-    "http://localhost:5173",
+    "http://localhost:5174", #remove
+    "http://localhost:5173", #remove
 
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -179,7 +183,7 @@ KASHIER_SECRET_KEY = os.getenv("KASHIER_SERVER_KEY")
 KASHIER_WEBHOOK_URL = os.getenv('KASHIER_WEBHOOK_URL', f"{BASE_URL}/store/transactions/webhook/kashier/")
 
 # 2. Environment Setup
-KASHIER_TEST_MODE = True 
+KASHIER_TEST_MODE = os.getenv('KASHIER_TEST_MODE', 'False') == 'True' 
 
 CONVERSION_API_KEY = os.getenv("CONVERSION_API_KEY")
 

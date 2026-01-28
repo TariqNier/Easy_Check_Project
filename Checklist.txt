@@ -1,5 +1,3 @@
-El fadel:
+What is rest:
 
--make test endpoint(in progress)
-
--(unpage services)
+removing test settings

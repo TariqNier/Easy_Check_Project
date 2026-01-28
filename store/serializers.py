@@ -1,6 +1,4 @@
 import re
-from decimal import Decimal
-from django.conf import settings
 from django.db import transaction
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
