@@ -175,17 +175,6 @@ class BalanceTransactionSerializer(serializers.ModelSerializer):
             return f"+{obj.amount}"
         return str(obj.amount)
     
-# 1. Standard Serializer for the Homepage List
-class ServiceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Service
-        fields = [
-            'service_id', 
-            'name', 
-            'description', 
-            'provider_price', 
-            'is_active'
-        ]
 
 # 2. History Serializer for User Profile (Your Code)
 class ServiceHistorySerializer(serializers.ModelSerializer):
@@ -202,7 +191,6 @@ class ServiceHistorySerializer(serializers.ModelSerializer):
             'service_name', 
             'item_identifier', 
             'result_text',
-            'sickw_order_id',
             'merchant_transaction_id'
         ]
 
