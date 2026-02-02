@@ -136,9 +136,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
             return Response(response_data, status=status.HTTP_400_BAD_REQUEST)  
             
         except requests.exceptions.RequestException as e:
+            if e.response is not None:
+                print("\n🔴 KASHIER ERROR RESPONSE:", e.response.text)  
+            
             txn.status = 'FAILED'
             txn.save(update_fields=['status'])
             return Response({"error": f"Payment Gateway Error: {str(e)}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
         
     @action(detail=False, methods=['post'], url_path='webhook/kashier')
     def kashier_webhook(self, request):
