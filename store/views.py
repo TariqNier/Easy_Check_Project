@@ -88,6 +88,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             "expireAt": (datetime.datetime.now() + datetime.timedelta(minutes=30)).isoformat() + "Z",
             "maxFailureAttempts": 3,
             "amount": str(txn.amount),
+            "mode": "test",
             "currency": "EGP",
             "merchantId": settings.KASHIER_MID,
             "order": str(txn.merchant_transaction_id),
