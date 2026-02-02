@@ -74,7 +74,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         # [Optimization] Don't hardcode localhost. Use dynamic base URL or settings.
         base_url = getattr(settings, 'BASE_URL', f"{request.scheme}://{request.get_host()}")
-        frontend_url = "https://www.google.com"
+        frontend_url = "http://158.220.126.228:3000"
        
         redirect_url = f"{frontend_url}/"
 
