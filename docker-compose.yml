@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Service 1: The Database (Unchanged)
+  # Service 1: The Database
   db:
     image: postgres:15
     volumes:
@@ -13,10 +13,10 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
 
-  # Service 2: Your Django App (Now with Gunicorn)
+  # Service 2: Your Django App (Backend)
   web:
     build: .
-    # 🚀 CHANGE 1: Use Gunicorn instead of runserver
+    # Using Gunicorn for production
     command: gunicorn system.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
@@ -41,10 +41,12 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - static_volume:/app/staticfiles # Read-only access to static files
       - media_volume:/app/media
+      # 👇 CRITICAL CHANGE: Maps your React build to Nginx
+      - ./frontend_build:/usr/share/nginx/html
     depends_on:
       - web
 
 volumes:
   postgres_data:
-  static_volume: # New volume to share files between Web and Nginx
+  static_volume:
   media_volume:
