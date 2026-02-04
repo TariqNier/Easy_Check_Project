@@ -164,13 +164,21 @@ REST_FRAMEWORK = {
     ),
 }
 
+CSRF_TRUSTED_ORIGINS = [
+    'http://shaikly.com',
+    'https://shaikly.com',
+    'http://www.shaikly.com',
+    'https://www.shaikly.com',
+    'http://158.220.126.228'
+]
+
+# 2. Add your domain here so browser allows data sharing
 CORS_ALLOWED_ORIGINS = [
-    #"http://localhost:3000",
-    #"http://127.0.0.1:3000", 
-    "http://158.220.126.228",       # Allow requests from the raw IP (browsers sometimes do this)
-    "http://158.220.126.228:3000",
-    #"http://localhost:5174",
-    #"http://localhost:5173", 
+    'http://shaikly.com',
+    'https://shaikly.com',
+    'http://www.shaikly.com',
+    'https://www.shaikly.com',
+    'http://158.220.126.228'
 ]
 CORS_ALLOW_CREDENTIALS = True
 
