@@ -74,7 +74,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         
         # [Optimization] Don't hardcode localhost. Use dynamic base URL or settings.
         base_url = getattr(settings, 'BASE_URL', f"{request.scheme}://{request.get_host()}")
-        frontend_url = "shaikly.com"
+        frontend_url = "http://shaikly.com"
        
         redirect_url = f"{frontend_url}/"
 
