@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Service 1: The Database
+  # Service 1: The Database (Unchanged)
   db:
     image: postgres:15
     volumes:
@@ -13,20 +13,38 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
 
-  # Service 2: Your Django App
+  # Service 2: Your Django App (Now with Gunicorn)
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    # 🚀 CHANGE 1: Use Gunicorn instead of runserver
+    command: gunicorn system.wsgi:application --bind 0.0.0.0:8000
     volumes:
-      - .:/app  # Syncs your folder with the container (Live Reload works!)
-    ports:
-      - "8000:8000"
+      - .:/app
+      - static_volume:/app/staticfiles # Shared folder for CSS/JS
+      - media_volume:/app/media        # Shared folder for User Uploads
+    expose:
+      - 8000 # Only internal docker containers can see this (Nginx)
     env_file:
       - .env
     environment:
-      - DB_HOST=db  # Tells Django to look for the service named "db", not "localhost"
+      - DB_HOST=db
     depends_on:
       - db
 
+  # Service 3: Nginx (The Traffic Cop)
+  nginx:
+    image: nginx:1.25-alpine
+    restart: always
+    ports:
+      - "80:80" # Standard HTTP Port
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/staticfiles # Read-only access to static files
+      - media_volume:/app/media
+    depends_on:
+      - web
+
 volumes:
   postgres_data:
+  static_volume: # New volume to share files between Web and Nginx
+  media_volume:
