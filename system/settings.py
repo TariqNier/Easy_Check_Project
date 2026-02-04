@@ -33,7 +33,7 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
 
-ALLOWED_HOSTS = ['158.220.126.228','localhost']
+ALLOWED_HOSTS = ['158.220.126.228', 'shaikly.com', 'www.shaikly.com', 'localhost']
 
 AUTH_USER_MODEL = 'authentication.User'
 
