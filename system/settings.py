@@ -169,7 +169,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://shaikly.com',
     'http://www.shaikly.com',
     'https://www.shaikly.com',
-    'http://158.220.126.228'
+    'http://158.220.126.228',
+    
 ]
 
 # 2. Add your domain here so browser allows data sharing
@@ -178,7 +179,13 @@ CORS_ALLOWED_ORIGINS = [
     'https://shaikly.com',
     'http://www.shaikly.com',
     'https://www.shaikly.com',
-    'http://158.220.126.228'
+    'http://158.220.126.228',
+    "http://localhost:3000", #remove
+    "http://127.0.0.1:3000", 
+    
+    "http://158.220.126.228:3000",
+    "http://localhost:5174", #remove
+    "http://localhost:5173",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
