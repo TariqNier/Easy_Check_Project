@@ -154,7 +154,7 @@ REST_FRAMEWORK = {
     
     # 1. Add Pagination (Limit to 20 items per page)
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 5,
 
     # 2. Add Filtering (Allow ?search= and ?ordering= in URL)
     'DEFAULT_FILTER_BACKENDS': (
