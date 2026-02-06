@@ -33,7 +33,14 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '158.220.126.228',
+    'api.shaikly.com',
+    'shaikly.com',
+    'www.shaikly.com'
+]
 
 AUTH_USER_MODEL = 'authentication.User'
 
