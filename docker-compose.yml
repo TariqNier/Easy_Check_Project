@@ -37,12 +37,14 @@ services:
     restart: always
     ports:
       - "80:80" # Standard HTTP Port
+      - "443:443" # Standard HTTPS Port
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - static_volume:/app/staticfiles # Read-only access to static files
       - media_volume:/app/media
       # 👇 CRITICAL CHANGE: Maps your React build to Nginx
       - ./frontend_build:/usr/share/nginx/html
+      - /etc/letsencrypt:/etc/letsencrypt
     depends_on:
       - web
 
