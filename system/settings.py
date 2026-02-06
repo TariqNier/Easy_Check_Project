@@ -170,6 +170,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://www.shaikly.com',
     'https://www.shaikly.com',
     'http://158.220.126.228',
+    'https://api.shaikly.com',
     
 ]
 
