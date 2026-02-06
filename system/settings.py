@@ -34,6 +34,7 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
 
 ALLOWED_HOSTS = [
+    '*',
     'localhost',
     '127.0.0.1',
     '158.220.126.228',
@@ -172,28 +173,27 @@ REST_FRAMEWORK = {
 }
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://shaikly.com',
     'https://shaikly.com',
-    'http://www.shaikly.com',
     'https://www.shaikly.com',
-    'http://158.220.126.228',
     'https://api.shaikly.com',
-    
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
 ]
 
-# 2. Add your domain here so browser allows data sharing
 CORS_ALLOWED_ORIGINS = [
-    'http://shaikly.com',
     'https://shaikly.com',
-    'http://www.shaikly.com',
     'https://www.shaikly.com',
+    'https://api.shaikly.com',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
     'http://158.220.126.228',
-    "http://localhost:3000", #remove
-    "http://127.0.0.1:3000", 
-    
-    "http://158.220.126.228:3000",
-    "http://localhost:5174", #remove
-    "http://localhost:5173",
+    'http://158.220.126.228:3000',
 ]
 CORS_ALLOW_CREDENTIALS = True
 
