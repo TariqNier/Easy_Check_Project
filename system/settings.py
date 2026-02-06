@@ -33,7 +33,7 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 BASE_URL = os.getenv('BASE_URL', "http://localhost:8000")
 
-ALLOWED_HOSTS = ['158.220.126.228', 'shaikly.com', 'www.shaikly.com', 'localhost']
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
 
 AUTH_USER_MODEL = 'authentication.User'
 
@@ -230,3 +230,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
 # The email address that appears in the "From" field
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+
+# ==========================================
+# SECURITY: TRUST NGINX SSL
+# ==========================================
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
