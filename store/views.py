@@ -246,6 +246,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
                                 service_name,
                                 result_text
                             )
+                            
+                            txn.guest_result = True
+                            txn.save(update_fields=['guest_result'])
                     
             else:
                 txn.status = 'FAILED'
