@@ -436,7 +436,7 @@ def send_guest_result_email(email, order_id, service_name, result_text):
     """Sent by the Cron Job when Sickw finishes."""
     
     # 1. Create the clean link (Hardcoded IP as requested)
-    result_link = f"http://158.220.126.228:3000/result/{order_id}"
+    result_link = f"https://shaikly.vercel.app/result/{order_id}"
     
     subject = f"Result Ready: Order #{order_id}"
     
